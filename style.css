@@ -165,6 +165,26 @@
   --accent-soft: rgba(38, 198, 218, 0.15);
 }
 
+/* HelloTheme */
+[data-theme="hello"] {
+  --brand: #fedc00;
+  --brand-rgb: 254, 220, 0;
+  --brand-dark: #e5c800;
+  --brand-text: #2d2800;
+  --bg-base: #fdf7cc;
+  --bg-grad-a: #fbf2b8;
+  --bg-grad-b: #fffde8;
+  --glass-bg: rgba(254, 220, 0, 0.3);
+  --glass-border: rgba(254, 220, 0, 0.55);
+  --glass-shadow: rgba(180, 155, 0, 0.18);
+  --text-primary: #2d2800;
+  --text-secondary: #5a4c00;
+  --text-muted: #8a7800;
+  --card-hover: rgba(254, 220, 0, 0.5);
+  --accent: #b89400;
+  --accent-soft: rgba(184, 148, 0, 0.15);
+}
+
 /* Really really light green */
 [data-theme="white"] {
   --brand: #ffffff;

@@ -46,6 +46,12 @@ const THEMES = [{
         hex: '#ffffff',
         attr: 'white'
     },
+    {
+        id: 'hello',
+        label: 'HelloTheme',
+        hex: '#fedc00',
+        attr: 'hello'
+    },
 ];
 
 const TAB_LABELS = {
