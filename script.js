@@ -140,7 +140,8 @@ function closeModal(el) {
 
 // ── Fetch entries ─────────────────────────────────────────────────────────
 async function fetchTab(tab) {
-    if (state.fetched[tab] || state.loading[tab]) return;
+    if (state.loading[tab]) return;
+    if (state.fetched[tab]) { render(); return; }
     state.loading[tab] = true;
     showLoading(true);
 
