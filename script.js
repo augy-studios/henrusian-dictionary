@@ -203,7 +203,7 @@ async function fetchTab(tab) {
         const data = await res.json();
         const entries = data.entries || [];
         state.allEntries[tab] = tab === 'dict'
-            ? entries.filter(e => (e.word || '').trim() !== 'Zz resume here')
+            ? entries.filter(e => !['Zz resume right here'].includes((e.word || '').trim()))
             : entries;
         state.fetched[tab] = true;
     } catch (err) {
