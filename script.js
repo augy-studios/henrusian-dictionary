@@ -185,7 +185,10 @@ async function fetchTab(tab) {
         const res = await fetch(`${API_BASE}/entries?tab=${tab}`);
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const data = await res.json();
-        state.allEntries[tab] = data.entries || [];
+        const entries = data.entries || [];
+        state.allEntries[tab] = tab === 'dict'
+            ? entries.filter(e => (e.word || '').trim() !== 'Zz resume here')
+            : entries;
         state.fetched[tab] = true;
     } catch (err) {
         console.error('Fetch error:', err);
