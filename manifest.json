@@ -1,7 +1,7 @@
 {
-    "name": "Template by UwU Apps",
-    "short_name": "UwU Template",
-    "description": "A simple template app; view live template at a glance!",
+    "name": "Henrusian Dictionary by UwU Apps",
+    "short_name": "Henrusian 13",
+    "description": "The Henrusian dictionary, at your fingertips!",
     "icons": [{
             "src": "hrd-512.png",
             "type": "image/png",
