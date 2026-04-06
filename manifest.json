@@ -3,7 +3,7 @@
     "short_name": "UwU Template",
     "description": "A simple template app; view live template at a glance!",
     "icons": [{
-        "src": "templateicon1.png",
+        "src": "hrd-main.png",
         "type": "image/png",
         "sizes": "512x512"
     }],
