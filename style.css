@@ -1169,6 +1169,122 @@ body::after {
   }
 }
 
+@media (max-width: 480px) {
+  /* Header: shrink padding and allow actions to compress */
+  .header-inner {
+    padding: 10px 14px;
+    gap: 8px;
+  }
+
+  .brand-title {
+    font-size: 0.95rem;
+    gap: 5px;
+  }
+
+  .edition-pill {
+    font-size: 0.6rem;
+    padding: 1px 6px;
+  }
+
+  .brand-logo {
+    width: 1.6rem;
+    height: 1.6rem;
+  }
+
+  .btn-icon {
+    padding: 6px 8px;
+    font-size: 1rem;
+  }
+
+  /* Tab nav: horizontal scroll when it doesn't fit */
+  .tab-nav {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+    flex-wrap: nowrap;
+    width: 100%;
+  }
+
+  .tab-nav::-webkit-scrollbar {
+    display: none;
+  }
+
+  .tab-btn {
+    white-space: nowrap;
+    flex-shrink: 0;
+    padding: 6px 14px;
+    font-size: 0.8rem;
+  }
+
+  /* Pagination: horizontal scroll */
+  .pagination {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+    flex-wrap: nowrap;
+    justify-content: flex-start;
+    padding-bottom: 4px;
+  }
+
+  .pagination::-webkit-scrollbar {
+    display: none;
+  }
+
+  .btn-page {
+    white-space: nowrap;
+    flex-shrink: 0;
+    padding: 6px 12px;
+    font-size: 0.78rem;
+  }
+
+  /* Hero / search */
+  .hero {
+    padding: 16px 12px 0;
+  }
+
+  .search-wrapper {
+    padding: 10px 14px;
+  }
+
+  .main-content {
+    padding: 0 12px;
+  }
+
+  /* Modal */
+  .modal {
+    padding: 20px 16px;
+  }
+
+  .modal-word {
+    font-size: 1.3rem;
+  }
+}
+
+@media (max-width: 360px) {
+  .brand-title {
+    font-size: 0.85rem;
+  }
+
+  /* Hide edition pill at narrowest to save space */
+  .edition-pill {
+    display: none;
+  }
+
+  .header-inner {
+    padding: 8px 10px;
+  }
+
+  .hero-sub {
+    font-size: 0.88rem;
+    text-align: center;
+  }
+
+  .results-header {
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+}
+
 /* Scrollbar styling */
 ::-webkit-scrollbar {
   width: 6px;
