@@ -105,11 +105,23 @@ const themeModalClose = $('themeModalClose');
 const themeGrid = $('themeGrid');
 const entryModalStar = $('entryModalStar');
 const pagination = $('pagination');
+const favsBtn = $('favsBtn');
+const favsModal = $('favsModal');
+const favsModalClose = $('favsModalClose');
+const favsModalSubtitle = $('favsModalSubtitle');
+const favsList = $('favsList');
 
 let currentEntry = null;
 
 function saveFavourites() {
     localStorage.setItem('hd_favourites', JSON.stringify([...state.favourites]));
+    syncFavsBtn();
+}
+
+function syncFavsBtn() {
+    const hasFavs = state.favourites.size > 0;
+    favsBtn.classList.toggle('active', hasFavs);
+    favsBtn.querySelector('polygon').style.fill = hasFavs ? 'currentColor' : 'none';
 }
 
 function toggleFavourite(id) {
@@ -310,6 +322,58 @@ function openEntry(entry, tab) {
     openModal(entryModal);
 }
 
+// ── Favourites modal
+function openFavourites() {
+    const allEntries = Object.entries(state.allEntries).flatMap(([tab, entries]) =>
+        entries.filter(e => state.favourites.has(e.id)).map(e => ({ ...e, tab }))
+    );
+
+    favsModalSubtitle.textContent = allEntries.length === 0
+        ? 'No favourites yet — star an entry to save it here.'
+        : `${allEntries.length} saved ${allEntries.length === 1 ? 'entry' : 'entries'}`;
+
+    favsList.innerHTML = '';
+    allEntries.forEach(entry => {
+        const row = document.createElement('div');
+        row.className = 'favs-row';
+        row.innerHTML = `
+            <div class="favs-row-info">
+                <span class="entry-tag">${TAB_LABELS[entry.tab].slice(0, -1)}</span>
+                <span class="favs-word">${escHtml(entry.word || '—')}</span>
+                <span class="favs-preview">${escHtml(entry.definition || '')}</span>
+            </div>
+            <button class="btn-star active favs-unstar" aria-label="Remove from favourites">
+                ${STAR_SVG}
+            </button>
+        `;
+        row.querySelector('.favs-row-info').addEventListener('click', () => {
+            closeModal(favsModal);
+            openEntry(entry, entry.tab);
+        });
+        const unstarBtn = row.querySelector('.favs-unstar');
+        unstarBtn.addEventListener('click', () => {
+            toggleFavourite(entry.id);
+            row.remove();
+            const remaining = favsList.querySelectorAll('.favs-row').length;
+            favsModalSubtitle.textContent = remaining === 0
+                ? 'No favourites yet — star an entry to save it here.'
+                : `${remaining} saved ${remaining === 1 ? 'entry' : 'entries'}`;
+            // Sync card star in grid
+            const card = entriesGrid.querySelector(`[data-entry-id="${entry.id}"]`);
+            if (card) {
+                const starBtn = card.querySelector('.btn-star');
+                if (starBtn) {
+                    starBtn.classList.remove('active');
+                    starBtn.setAttribute('aria-label', 'Add to favourites');
+                }
+            }
+        });
+        favsList.appendChild(row);
+    });
+
+    openModal(favsModal);
+}
+
 // ── Utils
 function escHtml(str) {
     return String(str)
@@ -367,6 +431,8 @@ document.querySelectorAll('.tab-btn').forEach(btn => {
 themeBtn.addEventListener('click', () => openModal(themeModal));
 themeModalClose.addEventListener('click', () => closeModal(themeModal));
 entryModalClose.addEventListener('click', () => closeModal(entryModal));
+favsBtn.addEventListener('click', () => openFavourites());
+favsModalClose.addEventListener('click', () => closeModal(favsModal));
 
 entryModalStar.addEventListener('click', () => {
     if (!currentEntry) return;
@@ -385,17 +451,39 @@ entryModalStar.addEventListener('click', () => {
 });
 
 // Close modals on overlay click
-[entryModal, themeModal].forEach(overlay => {
+[entryModal, themeModal, favsModal].forEach(overlay => {
     overlay.addEventListener('click', e => {
         if (e.target === overlay) closeModal(overlay);
     });
 });
 
-// Close modals on Escape
+// Close modals on Escape; arrow keys for pagination
 document.addEventListener('keydown', e => {
     if (e.key === 'Escape') {
         closeModal(entryModal);
         closeModal(themeModal);
+        closeModal(favsModal);
+    }
+
+    if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
+        const anyModalOpen = !entryModal.classList.contains('hidden') ||
+            !themeModal.classList.contains('hidden') ||
+            !favsModal.classList.contains('hidden');
+        if (anyModalOpen || document.activeElement === searchInput) return;
+
+        const tab = state.activeTab;
+        const allFiltered = filterAndSort(state.allEntries[tab], state.query, state.sortMode);
+        const totalPages = Math.max(1, Math.ceil(allFiltered.length / PAGE_SIZE));
+
+        if (e.key === 'ArrowLeft' && state.page[tab] > 0) {
+            state.page[tab]--;
+            render();
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        } else if (e.key === 'ArrowRight' && state.page[tab] < totalPages - 1) {
+            state.page[tab]++;
+            render();
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
     }
 });
 
@@ -404,6 +492,7 @@ function init() {
     // Restore theme
     const savedTheme = localStorage.getItem('hd_theme') || 'classic';
     applyTheme(savedTheme);
+    syncFavsBtn();
 
     // Initial fetch
     fetchTab('dict');

@@ -851,6 +851,82 @@ body::after {
   max-width: 480px;
 }
 
+/* --- Favourites Modal --- */
+#favsModal .modal {
+  background: rgba(255, 255, 255, 0.82);
+  border: 1.5px solid rgba(255, 255, 255, 0.7);
+  backdrop-filter: blur(32px) saturate(1.6);
+  -webkit-backdrop-filter: blur(32px) saturate(1.6);
+  box-shadow: 0 8px 40px rgba(0, 0, 0, 0.14), inset 0 1px 0 rgba(255, 255, 255, 0.9);
+}
+
+#favsModal .modal-title,
+#favsModal .modal-subtitle {
+  color: #1a1a1a;
+}
+
+#favsModal .modal-subtitle {
+  color: #555;
+}
+
+.favs-modal {
+  max-width: 560px;
+}
+
+.favs-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 16px;
+  max-height: 55vh;
+  overflow-y: auto;
+}
+
+.favs-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 14px;
+  border-radius: var(--radius-md);
+  background: rgba(255, 255, 255, 0.4);
+  border: 1px solid rgba(0, 0, 0, 0.06);
+  transition: background var(--transition);
+}
+
+.favs-row:hover {
+  background: rgba(255, 255, 255, 0.65);
+}
+
+.favs-row-info {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  cursor: pointer;
+  min-width: 0;
+}
+
+.favs-word {
+  font-family: var(--font-main);
+  font-size: 1rem;
+  color: #1a1a1a;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.favs-preview {
+  font-size: 0.8rem;
+  color: #555;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.favs-unstar {
+  flex-shrink: 0;
+}
+
 .modal-title {
   font-family: var(--font-main);
   font-size: 1.5rem;

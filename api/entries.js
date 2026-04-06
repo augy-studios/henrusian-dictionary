@@ -41,27 +41,34 @@ export default async function handler(req, res) {
     }
 
     try {
-        // Fetch all entries, ordered by word ascending
-        const url = `${supabaseUrl}/rest/v1/${table}?select=id,word,definition,created_at&order=word.asc&limit=10000`;
+        // Paginate through all rows (Supabase hard-caps at 1000 per request)
+        const PAGE = 1000;
+        const baseUrl = `${supabaseUrl}/rest/v1/${table}?select=id,word,definition,created_at&order=word.asc&limit=${PAGE}`;
+        const headers = {
+            apikey: supabaseKey,
+            Authorization: `Bearer ${supabaseKey}`,
+            'Content-Type': 'application/json',
+        };
 
-        const response = await fetch(url, {
-            headers: {
-                apikey: supabaseKey,
-                Authorization: `Bearer ${supabaseKey}`,
-                'Content-Type': 'application/json',
-                Range: '0-9999',
-            },
-        });
+        let entries = [];
+        let offset = 0;
 
-        if (!response.ok) {
-            const err = await response.text();
-            console.error('Supabase error:', err);
-            return res.status(response.status).json({
-                error: 'Failed to fetch from database.'
+        while (true) {
+            const response = await fetch(`${baseUrl}&offset=${offset}`, {
+                headers: { ...headers, Range: `${offset}-${offset + PAGE - 1}` },
             });
-        }
 
-        const entries = await response.json();
+            if (!response.ok) {
+                const err = await response.text();
+                console.error('Supabase error:', err);
+                return res.status(response.status).json({ error: 'Failed to fetch from database.' });
+            }
+
+            const page = await response.json();
+            entries = entries.concat(page);
+            if (page.length < PAGE) break;
+            offset += PAGE;
+        }
 
         // Cache for 60 seconds on CDN edge
         res.setHeader('Cache-Control', 's-maxage=60, stale-while-revalidate=120');
