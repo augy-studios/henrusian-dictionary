@@ -1,6 +1,6 @@
 'use strict';
 
-// ── Config ──────────────────────────────────────────────────────────────
+// ── Config
 const API_BASE = '/api';
 
 const THEMES = [{
@@ -53,7 +53,7 @@ const TAB_LABELS = {
     names: 'Names'
 };
 
-// ── State ────────────────────────────────────────────────────────────────
+// ── State
 let state = {
     activeTab: 'dict',
     query: '',
@@ -75,7 +75,7 @@ let state = {
     },
 };
 
-// ── DOM refs ─────────────────────────────────────────────────────────────
+// ── DOM refs
 const $ = id => document.getElementById(id);
 const searchInput = $('searchInput');
 const clearBtn = $('clearBtn');
@@ -97,7 +97,7 @@ const themeModal = $('themeModal');
 const themeModalClose = $('themeModalClose');
 const themeGrid = $('themeGrid');
 
-// ── Theme ─────────────────────────────────────────────────────────────────
+// ── Theme
 function applyTheme(id) {
     const theme = THEMES.find(t => t.id === id) || THEMES[0];
     document.documentElement.dataset.theme = theme.attr;
@@ -127,7 +127,7 @@ function renderThemeGrid(activeId) {
     });
 }
 
-// ── Modal helpers ─────────────────────────────────────────────────────────
+// ── Modal helpers
 function openModal(el) {
     el.classList.remove('hidden');
     document.body.style.overflow = 'hidden';
@@ -138,7 +138,7 @@ function closeModal(el) {
     document.body.style.overflow = '';
 }
 
-// ── Fetch entries ─────────────────────────────────────────────────────────
+// ── Fetch entries
 async function fetchTab(tab) {
     if (state.loading[tab]) return;
     if (state.fetched[tab]) { render(); return; }
@@ -160,7 +160,7 @@ async function fetchTab(tab) {
     render();
 }
 
-// ── Render ────────────────────────────────────────────────────────────────
+// ── Render
 function render() {
     const tab = state.activeTab;
     const isLoading = state.loading[tab];
@@ -219,7 +219,7 @@ function showLoading(visible) {
     }
 }
 
-// ── Entry modal ───────────────────────────────────────────────────────────
+// ── Entry modal
 function openEntry(entry, tab) {
     modalTag.textContent = TAB_LABELS[tab].slice(0, -1);
     modalWord.textContent = entry.word || '—';
@@ -230,7 +230,7 @@ function openEntry(entry, tab) {
     openModal(entryModal);
 }
 
-// ── Utils ─────────────────────────────────────────────────────────────────
+// ── Utils
 function escHtml(str) {
     return String(str)
         .replace(/&/g, '&amp;')
@@ -239,7 +239,7 @@ function escHtml(str) {
         .replace(/"/g, '&quot;');
 }
 
-// ── Event listeners ───────────────────────────────────────────────────────
+// ── Event listeners
 searchInput.addEventListener('input', () => {
     state.query = searchInput.value;
     clearBtn.classList.toggle('hidden', !state.query);
@@ -295,7 +295,7 @@ document.addEventListener('keydown', e => {
     }
 });
 
-// ── Init ──────────────────────────────────────────────────────────────────
+// ── Init
 function init() {
     // Restore theme
     const savedTheme = localStorage.getItem('hd_theme') || 'classic';

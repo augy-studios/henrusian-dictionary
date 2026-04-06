@@ -62,7 +62,7 @@
   --shadow-lg: 0 20px 60px var(--glass-shadow);
 
   --font-main: 'Jua', sans-serif;
-  --font-body: 'Nunito', sans-serif;
+  --font-body: 'Jua', sans-serif;
 }
 
 /* Not green 1 */
@@ -567,6 +567,48 @@ body::after {
   border-top-color: var(--accent);
   border-radius: 50%;
   animation: spin 0.8s linear infinite;
+}
+
+/* --- Entry Detail Modal (opaque glass) --- */
+#entryModal .modal {
+  background: rgba(255, 255, 255, 0.82);
+  border: 1.5px solid rgba(255, 255, 255, 0.7);
+  backdrop-filter: blur(32px) saturate(1.6);
+  -webkit-backdrop-filter: blur(32px) saturate(1.6);
+  box-shadow: 0 8px 40px rgba(0, 0, 0, 0.14), inset 0 1px 0 rgba(255, 255, 255, 0.9);
+  color: #1a1a1a;
+}
+
+#entryModal .modal-word,
+#entryModal .modal-definition,
+#entryModal .modal-meta {
+  color: #1a1a1a;
+}
+
+#entryModal .modal-definition {
+  color: #3a3a3a;
+}
+
+#entryModal .modal-meta {
+  color: #666;
+}
+
+/* --- Theme Modal (opaque glass) --- */
+#themeModal .modal {
+  background: rgba(255, 255, 255, 0.82);
+  border: 1.5px solid rgba(255, 255, 255, 0.7);
+  backdrop-filter: blur(32px) saturate(1.6);
+  -webkit-backdrop-filter: blur(32px) saturate(1.6);
+  box-shadow: 0 8px 40px rgba(0, 0, 0, 0.14), inset 0 1px 0 rgba(255, 255, 255, 0.9);
+}
+
+#themeModal .modal-title,
+#themeModal .modal-subtitle {
+  color: #1a1a1a;
+}
+
+#themeModal .modal-subtitle {
+  color: #555;
 }
 
 /* --- Modals --- */
