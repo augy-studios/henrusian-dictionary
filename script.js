@@ -104,7 +104,10 @@ const themeModal = $('themeModal');
 const themeModalClose = $('themeModalClose');
 const themeGrid = $('themeGrid');
 const entryModalStar = $('entryModalStar');
+const copyWordBtn = $('copyWordBtn');
+const copyDefBtn = $('copyDefBtn');
 const pagination = $('pagination');
+const toast = $('toast');
 const favsBtn = $('favsBtn');
 const favsModal = $('favsModal');
 const favsModalClose = $('favsModalClose');
@@ -112,6 +115,19 @@ const favsModalSubtitle = $('favsModalSubtitle');
 const favsList = $('favsList');
 
 let currentEntry = null;
+let toastTimer = null;
+
+function showToast(message) {
+    toast.textContent = message;
+    toast.classList.remove('hidden', 'toast-out');
+    void toast.offsetWidth; // force reflow for re-animation
+    toast.classList.add('toast-in');
+    if (toastTimer) clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => {
+        toast.classList.replace('toast-in', 'toast-out');
+        setTimeout(() => toast.classList.add('hidden'), 280);
+    }, 2200);
+}
 
 function saveFavourites() {
     localStorage.setItem('hd_favourites', JSON.stringify([...state.favourites]));
@@ -244,6 +260,7 @@ function render() {
             const nowFav = state.favourites.has(entry.id);
             starBtn.classList.toggle('active', nowFav);
             starBtn.setAttribute('aria-label', nowFav ? 'Remove from favourites' : 'Add to favourites');
+            showToast(nowFav ? 'Added to favourites' : 'Removed from favourites');
             if (currentEntry && currentEntry.id === entry.id) {
                 entryModalStar.classList.toggle('active', nowFav);
                 entryModalStar.setAttribute('aria-label', nowFav ? 'Remove from favourites' : 'Add to favourites');
@@ -259,6 +276,11 @@ function render() {
     renderPagination(totalPages, state.page[tab], tab);
 }
 
+const SVG_CHEVRONS_LEFT  = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="1em" height="1em" aria-hidden="true"><polyline points="11 17 6 12 11 7"/><polyline points="18 17 13 12 18 7"/></svg>`;
+const SVG_CHEVRON_LEFT   = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="1em" height="1em" aria-hidden="true"><polyline points="15 18 9 12 15 6"/></svg>`;
+const SVG_CHEVRON_RIGHT  = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="1em" height="1em" aria-hidden="true"><polyline points="9 18 15 12 9 6"/></svg>`;
+const SVG_CHEVRONS_RIGHT = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="1em" height="1em" aria-hidden="true"><polyline points="13 17 18 12 13 7"/><polyline points="6 17 11 12 6 7"/></svg>`;
+
 function renderPagination(totalPages, currentPage, tab) {
     if (totalPages <= 1) {
         pagination.classList.add('hidden');
@@ -266,10 +288,17 @@ function renderPagination(totalPages, currentPage, tab) {
     }
     pagination.classList.remove('hidden');
     pagination.innerHTML = `
-        <button class="btn-page" id="prevPage" ${currentPage === 0 ? 'disabled' : ''}>← Prev</button>
+        <button class="btn-page" id="firstPage" ${currentPage === 0 ? 'disabled' : ''}>${SVG_CHEVRONS_LEFT} First</button>
+        <button class="btn-page" id="prevPage" ${currentPage === 0 ? 'disabled' : ''}>${SVG_CHEVRON_LEFT} Prev</button>
         <span class="page-info">Page ${currentPage + 1} of ${totalPages}</span>
-        <button class="btn-page" id="nextPage" ${currentPage >= totalPages - 1 ? 'disabled' : ''}>Next →</button>
+        <button class="btn-page" id="nextPage" ${currentPage >= totalPages - 1 ? 'disabled' : ''}>Next ${SVG_CHEVRON_RIGHT}</button>
+        <button class="btn-page" id="lastPage" ${currentPage >= totalPages - 1 ? 'disabled' : ''}>Last ${SVG_CHEVRONS_RIGHT}</button>
     `;
+    pagination.querySelector('#firstPage').addEventListener('click', () => {
+        state.page[tab] = 0;
+        render();
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+    });
     pagination.querySelector('#prevPage').addEventListener('click', () => {
         state.page[tab]--;
         render();
@@ -277,6 +306,11 @@ function renderPagination(totalPages, currentPage, tab) {
     });
     pagination.querySelector('#nextPage').addEventListener('click', () => {
         state.page[tab]++;
+        render();
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+    });
+    pagination.querySelector('#lastPage').addEventListener('click', () => {
+        state.page[tab] = totalPages - 1;
         render();
         window.scrollTo({ top: 0, behavior: 'smooth' });
     });
@@ -322,6 +356,14 @@ function openEntry(entry, tab) {
         '';
     entryModalStar.classList.toggle('active', isFav);
     entryModalStar.setAttribute('aria-label', isFav ? 'Remove from favourites' : 'Add to favourites');
+    copyWordBtn.onclick = () => {
+        navigator.clipboard.writeText(entry.word || '');
+        showToast('Word copied to clipboard');
+    };
+    copyDefBtn.onclick = () => {
+        navigator.clipboard.writeText(entry.definition || '');
+        showToast('Definition copied to clipboard');
+    };
     openModal(entryModal);
 }
 
@@ -345,8 +387,8 @@ function openFavourites() {
                 <span class="favs-word">${escHtml(entry.word || '—')}</span>
                 <span class="favs-preview">${escHtml(entry.definition || '')}</span>
             </div>
-            <button class="btn-star active favs-unstar" aria-label="Remove from favourites">
-                ${STAR_SVG}
+            <button class="btn-trash favs-unstar" aria-label="Remove from favourites">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="1em" height="1em" aria-hidden="true"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
             </button>
         `;
         row.querySelector('.favs-row-info').addEventListener('click', () => {
@@ -357,6 +399,7 @@ function openFavourites() {
         unstarBtn.addEventListener('click', () => {
             toggleFavourite(entry.id);
             row.remove();
+            showToast('Removed from favourites');
             const remaining = favsList.querySelectorAll('.favs-row').length;
             favsModalSubtitle.textContent = remaining === 0
                 ? 'No favourites yet — star an entry to save it here.'
@@ -443,6 +486,7 @@ entryModalStar.addEventListener('click', () => {
     const nowFav = state.favourites.has(currentEntry.id);
     entryModalStar.classList.toggle('active', nowFav);
     entryModalStar.setAttribute('aria-label', nowFav ? 'Remove from favourites' : 'Add to favourites');
+    showToast(nowFav ? 'Added to favourites' : 'Removed from favourites');
     const card = entriesGrid.querySelector(`[data-entry-id="${currentEntry.id}"]`);
     if (card) {
         const starBtn = card.querySelector('.btn-star');

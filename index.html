@@ -125,9 +125,19 @@
                 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="1em" height="1em" aria-hidden="true"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
             </button>
             <div class="modal-tag" id="modalTag"></div>
-            <h2 class="modal-word" id="modalWord"></h2>
+            <div class="modal-word-row">
+                <h2 class="modal-word" id="modalWord"></h2>
+                <button class="btn-copy" id="copyWordBtn" aria-label="Copy word">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="1em" height="1em" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+                </button>
+            </div>
             <div class="modal-divider"></div>
-            <p class="modal-definition" id="modalDefinition"></p>
+            <div class="modal-def-row">
+                <p class="modal-definition" id="modalDefinition"></p>
+                <button class="btn-copy" id="copyDefBtn" aria-label="Copy definition">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="1em" height="1em" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+                </button>
+            </div>
             <div class="modal-meta" id="modalMeta"></div>
         </div>
     </div>
@@ -155,6 +165,8 @@
             </div>
         </div>
     </div>
+
+    <div class="toast hidden" id="toast"></div>
 
     <script src="/script.js"></script>
 
