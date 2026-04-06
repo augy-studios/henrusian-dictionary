@@ -42,13 +42,14 @@ export default async function handler(req, res) {
 
     try {
         // Fetch all entries, ordered by word ascending
-        const url = `${supabaseUrl}/rest/v1/${table}?select=id,word,definition,created_at&order=word.asc`;
+        const url = `${supabaseUrl}/rest/v1/${table}?select=id,word,definition,created_at&order=word.asc&limit=10000`;
 
         const response = await fetch(url, {
             headers: {
                 apikey: supabaseKey,
                 Authorization: `Bearer ${supabaseKey}`,
                 'Content-Type': 'application/json',
+                Range: '0-9999',
             },
         });
 
