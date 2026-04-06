@@ -508,6 +508,9 @@ body::after {
   padding: 5px 14px;
   cursor: pointer;
   color: var(--text-secondary);
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
   transition: background var(--transition), color var(--transition);
   backdrop-filter: blur(10px);
 }

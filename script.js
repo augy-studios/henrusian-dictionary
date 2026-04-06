@@ -447,13 +447,19 @@ clearBtn.addEventListener('click', () => {
 });
 
 const SORT_CYCLE = ['alpha-asc', 'alpha-desc', 'date-desc', 'date-asc'];
-const SORT_LABELS = { 'alpha-asc': 'A→Z', 'alpha-desc': 'Z→A', 'date-desc': 'Newest', 'date-asc': 'Oldest' };
+const SVG_ARROW_RIGHT = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" width="0.9em" height="0.9em" aria-hidden="true"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>`;
+const SORT_LABELS = {
+    'alpha-asc':  `A ${SVG_ARROW_RIGHT} Z`,
+    'alpha-desc': `Z ${SVG_ARROW_RIGHT} A`,
+    'date-desc':  'Newest',
+    'date-asc':   'Oldest',
+};
 
 sortBtn.addEventListener('click', () => {
     const next = SORT_CYCLE[(SORT_CYCLE.indexOf(state.sortMode) + 1) % SORT_CYCLE.length];
     state.sortMode = next;
     state.page[state.activeTab] = 0;
-    sortBtn.textContent = SORT_LABELS[next];
+    sortBtn.innerHTML = SORT_LABELS[next];
     render();
 });
 
@@ -540,6 +546,7 @@ function init() {
     const savedTheme = localStorage.getItem('hd_theme') || 'classic';
     applyTheme(savedTheme);
     syncFavsBtn();
+    sortBtn.innerHTML = SORT_LABELS[state.sortMode];
 
     // Initial fetch
     fetchTab('dict');
