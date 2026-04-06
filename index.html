@@ -46,16 +46,95 @@
 </head>
 
 <body>
-    Template
+    <!-- Header -->
+    <header class="glass-header">
+        <div class="header-inner">
+            <div class="brand">
+                <span class="brand-icon">📖</span>
+                <h1 class="brand-title">Henrusian Dictionary</h1>
+            </div>
+            <div class="header-actions">
+                <button class="btn-icon" id="themeBtn" title="Change theme" aria-label="Change theme">
+                    🎨
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Hero Search -->
+    <section class="hero">
+        <div class="hero-inner">
+            <p class="hero-sub">Search the Henrusian language</p>
+            <div class="search-wrapper glass-card">
+                <span class="search-icon">🔍</span>
+                <input type="text" id="searchInput" class="search-input" placeholder="Search words, idioms, names…"
+                    autocomplete="off" spellcheck="false" />
+                <button class="btn-clear" id="clearBtn" title="Clear search" aria-label="Clear">✕</button>
+            </div>
+
+            <!-- Tab Nav -->
+            <nav class="tab-nav" role="tablist">
+                <button class="tab-btn active" data-tab="dict" role="tab" aria-selected="true">Words</button>
+                <button class="tab-btn" data-tab="idioms" role="tab" aria-selected="false">Idioms</button>
+                <button class="tab-btn" data-tab="names" role="tab" aria-selected="false">Names</button>
+            </nav>
+        </div>
+    </section>
+
+    <!-- Main Content -->
+    <main class="main-content">
+        <div class="results-header">
+            <span class="results-count" id="resultsCount">Loading…</span>
+            <button class="btn-sort" id="sortBtn" title="Toggle sort">A→Z</button>
+        </div>
+
+        <div class="entries-grid" id="entriesGrid">
+            <!-- Populated by JS -->
+        </div>
+
+        <div class="empty-state hidden" id="emptyState">
+            <span class="empty-icon">🌿</span>
+            <p>No entries found.</p>
+        </div>
+
+        <div class="loading-state" id="loadingState">
+            <div class="spinner"></div>
+            <p>Fetching entries…</p>
+        </div>
+    </main>
+
+    <!-- Entry Detail Modal -->
+    <div class="modal-overlay hidden" id="entryModal" role="dialog" aria-modal="true" aria-labelledby="modalWord">
+        <div class="modal glass-card">
+            <button class="modal-close" id="entryModalClose" aria-label="Close">✕</button>
+            <div class="modal-tag" id="modalTag"></div>
+            <h2 class="modal-word" id="modalWord"></h2>
+            <div class="modal-divider"></div>
+            <p class="modal-definition" id="modalDefinition"></p>
+            <div class="modal-meta" id="modalMeta"></div>
+        </div>
+    </div>
+
+    <!-- Theme Picker Modal -->
+    <div class="modal-overlay hidden" id="themeModal" role="dialog" aria-modal="true" aria-labelledby="themeModalTitle">
+        <div class="modal glass-card theme-modal">
+            <button class="modal-close" id="themeModalClose" aria-label="Close">✕</button>
+            <h2 class="modal-title" id="themeModalTitle">Choose Theme</h2>
+            <p class="modal-subtitle">Pick a colour palette for your dictionary experience.</p>
+            <div class="theme-grid" id="themeGrid">
+                <!-- Populated by JS -->
+            </div>
+        </div>
+    </div>
 
     <script src="/script.js"></script>
 
     <script>
         if ('serviceWorker' in navigator) {
-          navigator.serviceWorker.register('/sw.js');
+            navigator.serviceWorker.register('/sw.js');
         }
     </script>
-    
+
 </body>
 
 </html>
