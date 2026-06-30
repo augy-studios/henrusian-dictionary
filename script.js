@@ -204,7 +204,8 @@ async function fetchTab(tab) {
     showLoading(true);
 
     try {
-        const res = await fetch(`${API_BASE}/entries?tab=${tab}`);
+        await initGuestKey('henrusian-dictionary');
+        const res = await signedFetch(`${API_BASE}/entries?tab=${tab}`);
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const data = await res.json();
         const entries = data.entries || [];
@@ -547,12 +548,16 @@ document.addEventListener('keydown', e => {
 });
 
 // ── Init
-function init() {
+async function init() {
     // Restore theme
     const savedTheme = localStorage.getItem('hd_theme') || 'classic';
     applyTheme(savedTheme);
     syncFavsBtn();
     sortBtn.innerHTML = SORT_LABELS[state.sortMode];
+
+    // No login on this site — every visitor is anonymous, so obtain a guest signing key
+    // before any signed API call fires.
+    await initGuestKey('henrusian-dictionary');
 
     // Initial fetch
     fetchTab('dict');

@@ -1,11 +1,14 @@
-const CACHE = "henrusian-v1";
+const CACHE = "henrusian-v2";
 
 const ASSETS = [
   "/",
   "/index.html",
   "/style.css",
-  "/app.js",
+  "/script.js",
+  "/lib/uwu-request-signing.js",
   "/hrd-main.png",
+  "/hrd-192.png",
+  "/hrd-512.png",
   "/favicon.ico",
   "/manifest.json"
 ];
