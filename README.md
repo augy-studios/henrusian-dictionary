@@ -12,7 +12,6 @@ Built and maintained by [Augy Studios](https://github.com/augy-studios) under th
 - **Entry detail view** with one-tap copy for the word or its definition.
 - **Eight themes**, from Classic green through HelloTheme, remembered between visits.
 - **PWA** — service worker caching, offline fallback, install prompt, standalone display.
-- **Signed API requests** — the public data endpoint only answers HMAC-signed, single-use requests.
 
 ## Project layout
 
@@ -24,12 +23,8 @@ main-site/
 ├── sw.js               # Service worker (cache-first with background refresh)
 ├── manifest.json       # PWA manifest
 ├── 404.html / 404.css  # Not-found page
-├── api/
-│   ├── entries.js          # GET /api/entries?tab=dict|idioms|names
-│   └── auth/guest-key.js   # GET /api/auth/guest-key — issues a short-lived signing key
-└── lib/
-    ├── uwu-request-signing.js         # Browser: key storage + signedFetch()
-    └── uwu-request-signing-server.js  # Node: verifySignedRequest()
+└── api/
+    └── entries.js      # GET /api/entries?tab=dict|idioms|names
 ```
 
 The front end is plain HTML, CSS and vanilla JavaScript — no build step, no framework, no bundler. The `api/` folder holds Vercel serverless functions.
@@ -38,10 +33,8 @@ The front end is plain HTML, CSS and vanilla JavaScript — no build step, no fr
 
 Data lives in Supabase, reached over the PostgREST endpoint with a service key that never leaves the server.
 
-1. On load, the browser calls `/api/auth/guest-key`, which mints a random 32-byte HMAC key plus a session token, stores it in the `uwu_signing_keys` table with a 10-minute expiry, and returns it. The origin is checked against `ALLOWED_ORIGINS`.
-2. Every data request is signed client-side: `HMAC-SHA256(key, "<timestamp>:<method>:<path>:<bodyHash>")`, sent as `X-Request-Token`, `X-Request-TS` and `X-Key-ID`.
-3. `/api/entries` verifies the signature with a timing-safe compare, rejects timestamps more than 30 seconds off, and records each token in `uwu_used_request_tokens` so a signature can't be replayed.
-4. Valid requests are answered from Supabase, paged 1000 rows at a time, and cached at the CDN edge for 60 seconds.
+1. The browser calls `/api/entries?tab=dict|idioms|names`.
+2. Requests are answered from Supabase, paged 1000 rows at a time, and cached at the CDN edge for 60 seconds.
 
 ### Expected tables
 
@@ -50,8 +43,6 @@ Data lives in Supabase, reached over the PostgREST endpoint with a service key t
 | `henrusian15_dict` | Word entries — `id`, `word`, `definition`, `created_at` |
 | `henrusian15_idioms` | Idiom entries — same shape |
 | `henrusian15_names` | Name entries — same shape |
-| `uwu_signing_keys` | Issued signing keys — `session_token`, `signing_key`, `is_guest`, `app_id`, `created_at`, `expires_at` |
-| `uwu_used_request_tokens` | Spent request tokens — `token`, `session_token`, `used_at` |
 
 ### Environment variables
 
@@ -59,7 +50,6 @@ Data lives in Supabase, reached over the PostgREST endpoint with a service key t
 | --- | --- |
 | `SUPABASE_URL` | Supabase project URL |
 | `SUPABASE_SERVICE_KEY` | Service role key — server-side only, never expose to the client |
-| `ALLOWED_ORIGINS` | Comma-separated origins allowed to request a guest key |
 
 ## Running locally
 
@@ -71,7 +61,7 @@ cd main-site
 vercel dev
 ```
 
-Set the three environment variables in a `.env` file (or via `vercel env pull`) before starting. Without them the API returns `500 Supabase credentials not configured`.
+Set both environment variables in a `.env` file (or via `vercel env pull`) before starting. Without them the API returns `500 Supabase credentials not configured`.
 
 If you only want to work on the UI, any static server over `main-site/` will do — the entry list will fail to load, but layout, themes and modals are all testable.
 

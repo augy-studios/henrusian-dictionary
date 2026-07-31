@@ -1,5 +1,3 @@
-import { verifySignedRequest } from '../lib/uwu-request-signing-server.js';
-
 const TABLE_MAP = {
     dict: 'henrusian15_dict',
     idioms: 'henrusian15_idioms',
@@ -10,7 +8,7 @@ export default async function handler(req, res) {
     // CORS headers
     res.setHeader('Access-Control-Allow-Origin', '*');
     res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
-    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, X-Request-Token, X-Request-TS, X-Key-ID');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
 
     if (req.method === 'OPTIONS') {
         return res.status(200).end();
@@ -40,11 +38,6 @@ export default async function handler(req, res) {
         return res.status(500).json({
             error: 'Supabase credentials not configured.'
         });
-    }
-
-    const verification = await verifySignedRequest(req, { url: supabaseUrl, key: supabaseKey });
-    if (!verification.valid) {
-        return res.status(403).json({ error: verification.reason });
     }
 
     try {
