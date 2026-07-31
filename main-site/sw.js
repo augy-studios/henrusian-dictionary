@@ -1,10 +1,13 @@
-const CACHE = "henrusian-v3";
+const CACHE = "henrusian-v4";
 
 const ASSETS = [
   "/",
   "/index.html",
   "/style.css",
   "/script.js",
+  "/js/icons.js",
+  "/js/ui.js",
+  "/js/theme.js",
   "/hrd-main.png",
   "/hrd-192.png",
   "/hrd-512.png",
