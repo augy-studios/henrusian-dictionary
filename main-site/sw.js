@@ -1,4 +1,4 @@
-const CACHE = "henrusian-v4";
+const CACHE = "henrusian-v5";
 
 const ASSETS = [
   "/",
