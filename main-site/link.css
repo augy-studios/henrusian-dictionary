@@ -1,0 +1,201 @@
+/* Styles for the sync page. Uses the same tokens as style.css, which is loaded first. */
+
+.sync-main {
+  max-width: 620px;
+  margin: 0 auto;
+  padding: 24px 16px 64px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.sync-card {
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.sync-card h2 {
+  font-size: 1.25rem;
+  color: var(--brand-ink);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.sync-card h2 svg { width: 20px; height: 20px; }
+
+.sync-card p {
+  font-size: 0.92rem;
+  color: var(--ink);
+  line-height: 1.55;
+}
+
+.sync-card p.muted {
+  font-size: 0.84rem;
+  color: var(--muted-strong, var(--muted));
+}
+
+.sync-steps {
+  margin: 0;
+  padding-left: 22px;
+  font-size: 0.92rem;
+  line-height: 1.7;
+  color: var(--ink);
+}
+
+.sync-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+.sync-btn {
+  font-size: 0.92rem;
+  padding: 11px 20px;
+  border-radius: var(--radius-sm, 12px);
+  background: var(--surface-strong);
+  border: 1px solid var(--surface-border);
+  color: var(--ink);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  transition: background var(--transition, 0.18s ease), color var(--transition, 0.18s ease);
+}
+
+.sync-btn svg { width: 17px; height: 17px; }
+
+.sync-btn:hover:not(:disabled) {
+  background: var(--brand-fill, var(--brand));
+  color: var(--on-brand);
+}
+
+.sync-btn.primary {
+  background: var(--brand);
+  color: var(--on-brand);
+  border-color: transparent;
+  font-size: 1rem;
+  padding: 13px 24px;
+}
+
+.sync-btn.danger:hover:not(:disabled) {
+  background: var(--error);
+  color: #fff;
+}
+
+.sync-rows {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.sync-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 12px;
+  font-size: 0.9rem;
+  padding: 9px 12px;
+  border-radius: var(--radius-sm, 12px);
+  background: var(--surface-strong);
+  border: 1px solid var(--surface-border);
+}
+
+.sync-row dt { color: var(--muted-strong, var(--muted)); }
+.sync-row dd { font-weight: 600; text-align: right; }
+
+.sync-code {
+  font-family: ui-monospace, "SFMono-Regular", "Consolas", monospace;
+  font-size: 1.6rem;
+  letter-spacing: 0.22em;
+  text-align: center;
+  padding: 14px;
+  border-radius: var(--radius-sm, 12px);
+  background: var(--brand-fill, var(--brand));
+  color: var(--on-brand);
+  user-select: text;
+}
+
+.code-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 8px;
+}
+
+.code-grid span {
+  font-family: ui-monospace, "SFMono-Regular", "Consolas", monospace;
+  font-size: 1rem;
+  letter-spacing: 0.08em;
+  text-align: center;
+  padding: 10px 6px;
+  border-radius: var(--radius-sm, 12px);
+  background: var(--surface-strong);
+  border: 1px solid var(--surface-border);
+  user-select: text;
+}
+
+.code-grid span.spent {
+  opacity: 0.45;
+  text-decoration: line-through;
+}
+
+.sync-input {
+  width: 100%;
+  font-size: 1.05rem;
+  letter-spacing: 0.12em;
+  text-align: center;
+  padding: 12px;
+  border-radius: var(--radius-sm, 12px);
+  background: var(--surface-strong);
+  border: 1px solid var(--surface-border);
+  color: var(--ink);
+  text-transform: uppercase;
+}
+
+.sync-input:focus {
+  outline: 2px solid var(--brand);
+  outline-offset: 1px;
+}
+
+.sync-note {
+  font-size: 0.86rem;
+  padding: 10px 12px;
+  border-radius: var(--radius-sm, 12px);
+  border: 1px solid var(--surface-border);
+  background: var(--surface-strong);
+  line-height: 1.5;
+}
+
+.sync-note.ok { color: var(--ok); }
+.sync-note.warn { color: var(--warn); }
+.sync-note.error { color: var(--error); }
+.sync-note.busy { color: var(--busy); }
+
+.sync-waiting {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 0.9rem;
+  color: var(--muted-strong, var(--muted));
+}
+
+.sync-waiting .spinner {
+  width: 20px;
+  height: 20px;
+  margin: 0;
+}
+
+.back-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.9rem;
+  text-decoration: none;
+}
+
+.back-link svg { width: 16px; height: 16px; }
+
+[hidden] { display: none !important; }

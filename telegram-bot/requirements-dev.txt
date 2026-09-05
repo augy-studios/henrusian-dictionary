@@ -1,0 +1,5 @@
+-r requirements.txt
+
+# The test suite runs entirely offline: Telegram is faked and Supabase is answered by an
+# in-memory stub, so nothing here reaches the network.
+pytest>=8.0,<9

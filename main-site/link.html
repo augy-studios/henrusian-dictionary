@@ -1,0 +1,232 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8">
+    <title>Sync with Telegram | Henrusian Dictionary</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="description" content="Share your saved Henrusian entries between this browser and Telegram.">
+    <meta name="robots" content="noindex">
+
+    <link rel="manifest" href="/manifest.json" />
+
+    <script>
+        (function () {
+            var k = "henrusian";
+            var m = localStorage.getItem(k + ".mode") || "light";
+            var c = localStorage.getItem(k + ".colorTheme") || "classic";
+            document.documentElement.setAttribute("data-mode", m);
+            document.documentElement.setAttribute("data-color-theme", c);
+        })();
+    </script>
+
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Jua&display=swap">
+    <link rel="stylesheet" href="/style.css">
+    <link rel="stylesheet" href="/link.css">
+    <meta name="theme-color" content="#ccffcc" />
+
+    <link rel="apple-touch-icon" href="/hrd-main.png">
+    <link rel="icon" href="/favicon.ico">
+    <link rel="shortcut icon" href="/favicon.ico">
+</head>
+
+<body>
+    <header class="glass-header">
+        <div class="header-inner">
+            <div class="brand">
+                <span class="brand-icon">
+                    <img src="/hrd-main.png" alt="Henrusian Dictionary logo" class="brand-logo">
+                </span>
+                <h1 class="brand-title">Sync with Telegram</h1>
+            </div>
+            <div class="header-actions">
+                <a class="btn-icon" href="/" title="Back to the dictionary" aria-label="Back to the dictionary">
+                    <span data-icon="arrow-left"></span>
+                </a>
+                <button class="btn-icon" id="themeBtn" type="button" title="Theme" aria-label="Theme">
+                    <span data-icon="sun"></span>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <main class="sync-main">
+
+        <!-- While the first status call is in flight -->
+        <section class="glass-card sync-card" id="loadingCard">
+            <div class="sync-waiting">
+                <div class="spinner"></div>
+                <span>Checking this browser...</span>
+            </div>
+        </section>
+
+        <!-- Not linked yet -->
+        <section class="glass-card sync-card" id="startCard" hidden>
+            <h2><span data-icon="send"></span> Share your favourites with Telegram</h2>
+            <p>
+                Pair this browser with the Telegram bot and your saved entries live in both
+                places at once. Star something here and it is there, and the other way round.
+                Pair as many browsers as you like, and they all share one collection.
+            </p>
+            <p class="muted">
+                There is no account and nothing to sign in to. The link is just a pairing between
+                this browser and one Telegram account, and either side can end it at any time.
+            </p>
+            <ol class="sync-steps">
+                <li>Tap the button below.</li>
+                <li>Telegram opens on the bot. Tap Start.</li>
+                <li>That is it. Favourites from both sides merge into one collection, with no
+                    duplicates.</li>
+            </ol>
+            <div class="sync-actions">
+                <button class="sync-btn primary" id="startBtn" type="button">
+                    <span data-icon="send"></span> Sync with Telegram
+                </button>
+            </div>
+            <p class="muted" id="startCount"></p>
+            <div class="sync-note error" id="startError" hidden></div>
+        </section>
+
+        <!-- Waiting for the tap in Telegram -->
+        <section class="glass-card sync-card" id="pendingCard" hidden>
+            <h2><span data-icon="send"></span> Waiting for Telegram</h2>
+            <p>
+                Telegram should have opened on the bot. Tap <b>Start</b> there and this page finishes
+                on its own.
+            </p>
+            <div class="sync-actions">
+                <a class="sync-btn primary" id="openTelegram" href="#" target="_blank" rel="noopener">
+                    <span data-icon="send"></span> Open Telegram
+                </a>
+            </div>
+            <p class="muted">
+                If nothing opened, send this code to the bot with <code>/code</code> instead. It works
+                for ten minutes, once.
+            </p>
+            <div class="sync-code" id="pendingCode">------</div>
+            <div class="sync-waiting">
+                <div class="spinner"></div>
+                <span id="pendingStatus">Watching for the link...</span>
+            </div>
+            <div class="sync-actions">
+                <button class="sync-btn" id="cancelPending" type="button">Start over</button>
+            </div>
+        </section>
+
+        <!-- Linked -->
+        <section class="glass-card sync-card" id="linkedCard" hidden>
+            <h2><span data-icon="check"></span> Paired</h2>
+            <p id="linkedIntro">
+                Your favourites are shared with Telegram. Pair as many browsers as you
+                like, and they all share the same collection.
+            </p>
+            <dl class="sync-rows">
+                <div class="sync-row"><dt>Telegram</dt><dd id="linkedWho">-</dd></div>
+                <div class="sync-row"><dt>Linked since</dt><dd id="linkedSince">-</dd></div>
+                <div class="sync-row"><dt>Saved entries</dt><dd id="linkedCount">-</dd></div>
+                <div class="sync-row"><dt>Recovery codes left</dt><dd id="linkedCodes">-</dd></div>
+            </dl>
+            <div id="deviceSection" hidden>
+                <p class="muted" id="deviceCount"></p>
+                <div class="sync-rows" id="deviceList"></div>
+            </div>
+            <div class="sync-note warn" id="noCodesWarning" hidden>
+                You have no recovery codes. Without one, a Telegram account you can no longer reach
+                cannot release these pairings. Creating a set takes a moment.
+            </div>
+            <div class="sync-actions">
+                <button class="sync-btn" id="codesBtn" type="button">
+                    <span data-icon="shield"></span> Create recovery codes
+                </button>
+                <button class="sync-btn danger" id="unlinkBtn" type="button">
+                    <span data-icon="unlink"></span> Unpair this browser
+                </button>
+                <button class="sync-btn danger" id="unlinkAllBtn" type="button" hidden>
+                    <span data-icon="unlink"></span> Unpair all browsers
+                </button>
+            </div>
+            <div class="sync-note" id="linkedNote" hidden></div>
+        </section>
+
+        <!-- Recovery codes -->
+        <section class="glass-card sync-card" id="codesCard" hidden>
+            <h2><span data-icon="shield"></span> Recovery codes</h2>
+            <p id="codesLead">
+                A recovery code releases every paired browser when Telegram is out of reach, for instance after
+                losing the phone or the number. Keep them somewhere you can get to without Telegram.
+            </p>
+            <div class="sync-waiting" id="codesWaiting" hidden>
+                <div class="spinner"></div>
+                <span id="codesStatus">Waiting for you to approve this in Telegram...</span>
+            </div>
+            <div class="code-grid" id="codesGrid" hidden></div>
+            <div class="sync-note warn" id="codesOnce" hidden>
+                This is the only time these are shown. Copy them somewhere safe now. Each one works
+                once, and any codes from before have stopped working.
+            </div>
+            <div class="sync-actions" id="codesActions" hidden>
+                <button class="sync-btn" id="copyCodesBtn" type="button">
+                    <span data-icon="copy"></span> Copy all
+                </button>
+                <button class="sync-btn" id="codesDoneBtn" type="button">
+                    <span data-icon="check"></span> I have saved them
+                </button>
+            </div>
+            <div class="sync-note error" id="codesError" hidden></div>
+        </section>
+
+        <!-- Redeeming a code, for anyone who cannot reach Telegram -->
+        <section class="glass-card sync-card" id="recoverCard" hidden>
+            <h2><span data-icon="refresh"></span> Cannot reach Telegram?</h2>
+            <p>
+                Enter one of your recovery codes to release every browser paired with that
+                Telegram account. Your favourites stay in this browser, and you can pair a
+                new Telegram account afterwards.
+            </p>
+            <input class="sync-input" id="recoverInput" type="text" inputmode="latin"
+                autocomplete="off" spellcheck="false" placeholder="ABCD-EFGH-JKMN" maxlength="17">
+            <div class="sync-actions">
+                <button class="sync-btn" id="recoverBtn" type="button">
+                    <span data-icon="shield"></span> Release the link
+                </button>
+                <button class="sync-btn" id="recoverCancel" type="button">Cancel</button>
+            </div>
+            <div class="sync-note" id="recoverNote" hidden></div>
+        </section>
+
+        <p><a class="back-link" href="/"><span data-icon="arrow-left"></span> Back to the dictionary</a></p>
+        <p class="muted" id="recoverOpen">
+            Linked on another browser and cannot reach Telegram?
+            <button class="back-link" id="recoverOpenBtn" type="button">Use a recovery code</button>
+        </p>
+    </main>
+
+    <div class="toast hidden" id="toast"></div>
+
+    <!-- Theme modal, the same one the dictionary uses -->
+    <div class="modal-backdrop hidden" id="themeModal">
+        <div class="modal glass" role="dialog" aria-modal="true" aria-labelledby="themeModalTitle">
+            <div class="modal-head">
+                <h2 id="themeModalTitle">Theme</h2>
+                <button class="icon-btn small" type="button" data-close-modal="themeModal" aria-label="Close">
+                    <span data-icon="close"></span>
+                </button>
+            </div>
+            <p class="modal-section-label">Mode</p>
+            <div class="mode-toggle" id="modeToggle">
+                <button class="mode-btn" type="button" data-mode="light" aria-pressed="false"><span data-icon="sun"></span>Light</button>
+                <button class="mode-btn" type="button" data-mode="dark" aria-pressed="false"><span data-icon="moon"></span>Dark</button>
+            </div>
+            <p class="modal-section-label">Brand colour</p>
+            <div class="swatch-grid" id="swatchGrid"></div>
+        </div>
+    </div>
+
+    <script src="/js/icons.js"></script>
+    <script src="/js/ui.js"></script>
+    <script src="/js/theme.js"></script>
+    <script src="/js/sync.js"></script>
+    <script src="/js/account.js"></script>
+</body>
+
+</html>

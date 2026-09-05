@@ -36,6 +36,7 @@ let state = {
         names: 0
     },
     favourites: new Set(JSON.parse(localStorage.getItem('hd_favourites') || '[]')),
+    synced: false,
 };
 
 // -- DOM refs
@@ -67,6 +68,7 @@ const favsModalSubtitle = $('favsModalSubtitle');
 const favsList = $('favsList');
 
 let currentEntry = null;
+let currentEntryTab = null;
 let toastTimer = null;
 
 function showToast(message) {
@@ -90,13 +92,67 @@ function syncFavsBtn() {
     favsBtn.classList.toggle('active', state.favourites.size > 0);
 }
 
-function toggleFavourite(id) {
+// When this browser is linked to Telegram, a star is also written to the shared set. The
+// local copy is updated either way, so a failed write never blocks the interface, and the
+// next visit reconciles it.
+function pushFavourite(id, tab, saved) {
+    if (!state.synced || !tab) return;
+    const call = saved
+        ? window.HDSync.addFavourite(tab, id)
+        : window.HDSync.removeFavourite(tab, id);
+    call.catch(() => showToast('Saved here, but Telegram could not be reached'));
+}
+
+function toggleFavourite(id, tab) {
     if (state.favourites.has(id)) {
         state.favourites.delete(id);
     } else {
         state.favourites.add(id);
     }
     saveFavourites();
+    pushFavourite(id, tab, state.favourites.has(id));
+}
+
+// Pulls the shared set down and pushes up anything this browser had on its own, so the two
+// sides agree without either losing an entry.
+async function reconcileFavourites() {
+    if (!window.HDSync || !window.HDSync.hasDevice() || !window.HDSync.wasLinked()) return;
+
+    try {
+        const remote = await window.HDSync.status();
+        if (!remote.linked) {
+            window.HDSync.rememberLinked(false);
+            return;
+        }
+
+        state.synced = true;
+        const shared = new Set((remote.favourites || []).map((item) => String(item.id)));
+        const onlyHere = [...state.favourites].filter((id) => !shared.has(String(id)));
+
+        shared.forEach((id) => state.favourites.add(id));
+        saveFavourites();
+        render();
+
+        if (onlyHere.length) {
+            const pairs = onlyHere
+                .map((id) => {
+                    const found = findEntryAnywhere(id);
+                    return found ? { tab: found.tab, id: String(id) } : null;
+                })
+                .filter(Boolean);
+            if (pairs.length) window.HDSync.mergeFavourites(pairs).catch(() => {});
+        }
+    } catch {
+        // Offline, or the sync service is down. The local set is still correct.
+    }
+}
+
+function findEntryAnywhere(id) {
+    for (const tab of Object.keys(state.allEntries)) {
+        const hit = state.allEntries[tab].find((entry) => String(entry.id) === String(id));
+        if (hit) return { tab, entry: hit };
+    }
+    return null;
 }
 
 // -- Fetch entries
@@ -163,7 +219,7 @@ function render() {
         const starBtn = card.querySelector('.btn-star');
         starBtn.addEventListener('click', e => {
             e.stopPropagation();
-            toggleFavourite(entry.id);
+            toggleFavourite(entry.id, tab);
             const nowFav = state.favourites.has(entry.id);
             starBtn.classList.toggle('active', nowFav);
             starBtn.setAttribute('aria-label', nowFav ? 'Remove from favourites' : 'Add to favourites');
@@ -251,6 +307,7 @@ function showLoading(visible) {
 // -- Entry modal
 function openEntry(entry, tab) {
     currentEntry = entry;
+    currentEntryTab = tab;
     const isFav = state.favourites.has(entry.id);
     modalTag.textContent = TAB_LABELS[tab].slice(0, -1);
     modalWord.textContent = entry.word || '-';
@@ -301,7 +358,7 @@ function openFavourites() {
         });
         const unstarBtn = row.querySelector('.favs-unstar');
         unstarBtn.addEventListener('click', () => {
-            toggleFavourite(entry.id);
+            toggleFavourite(entry.id, entry.tab);
             row.remove();
             showToast('Removed from favourites');
             const remaining = favsList.querySelectorAll('.favs-row').length;
@@ -396,7 +453,7 @@ favsModalClose.addEventListener('click', () => closeModal('favsModal'));
 
 entryModalStar.addEventListener('click', () => {
     if (!currentEntry) return;
-    toggleFavourite(currentEntry.id);
+    toggleFavourite(currentEntry.id, currentEntryTab);
     const nowFav = state.favourites.has(currentEntry.id);
     entryModalStar.classList.toggle('active', nowFav);
     entryModalStar.setAttribute('aria-label', nowFav ? 'Remove from favourites' : 'Add to favourites');
@@ -441,14 +498,50 @@ document.addEventListener('keydown', e => {
     }
 });
 
+// -- Deep links
+// The bot links to /?tab=dict&entry=123, so a shared entry opens where it was meant to.
+function pendingDeepLink() {
+    const params = new URLSearchParams(window.location.search);
+    const entry = params.get('entry');
+    if (!entry) return null;
+    const tab = params.get('tab');
+    return { entry, tab: TAB_LABELS[tab] ? tab : 'dict' };
+}
+
+function activateTab(tab) {
+    document.querySelectorAll('.tab-btn').forEach(btn => {
+        const on = btn.dataset.tab === tab;
+        btn.classList.toggle('active', on);
+        btn.setAttribute('aria-selected', on ? 'true' : 'false');
+    });
+    state.activeTab = tab;
+}
+
+async function openDeepLink(target) {
+    activateTab(target.tab);
+    await fetchTab(target.tab);
+    const entry = state.allEntries[target.tab].find(e => String(e.id) === String(target.entry));
+    if (entry) {
+        openEntry(entry, target.tab);
+    } else {
+        showToast('That entry could not be found');
+    }
+    // Leave the address bar clean, so a refresh does not reopen the modal.
+    window.history.replaceState({}, '', window.location.pathname);
+}
+
 // -- Init
 function init() {
     bootTheme();
     syncFavsBtn();
     setSortLabel(state.sortMode);
 
-    // Initial fetch
-    fetchTab('dict');
+    const target = pendingDeepLink();
+    if (target) {
+        openDeepLink(target).then(reconcileFavourites);
+    } else {
+        fetchTab('dict').then(reconcileFavourites);
+    }
 
     // Register service worker
     if ('serviceWorker' in navigator) {
