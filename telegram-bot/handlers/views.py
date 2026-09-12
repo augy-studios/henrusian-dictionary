@@ -3,6 +3,9 @@
 Every view is a pure function of its parameters, which is what makes the durable buttons
 work: a message from months ago carries a token, the token carries the parameters, and
 the view can be rebuilt from scratch even after a restart that cleared all memory.
+
+A view returns a pack: the rich payload (markdown plus its plain fallback), the buttons,
+and the name and parameters that let the message be rebuilt later.
 """
 
 import math
@@ -11,8 +14,9 @@ import config
 import db
 from services import buttons, entries, favourites
 from services.buttons import act, link
-from utils.rich import edit_rich, reply_rich
-from utils.text import esc, format_date, one_line, plural, truncate
+from utils.reply import edit_rich_message, send_rich_message, sent_message_id
+from utils.rich import bullets, compose, escape_md
+from utils.text import format_date, one_line, plural, truncate
 
 STAR_ON = "★"
 STAR_OFF = "☆"
@@ -24,7 +28,7 @@ INTRO = (
     "Search words, idioms and names, save the ones you want to keep, and get a word of the "
     "day if you like. Everything here reads the same catalogue as the web app, so the two "
     "never disagree.\n\n"
-    "<b>To search, just send a word.</b> No command needed. The buttons on the results "
+    "**To search, just send a word.** No command needed. The buttons on the results "
     "narrow them to Words, Idioms or Names, and change the sort order."
 )
 
@@ -35,27 +39,16 @@ def _tab_label(tab: str) -> str:
 
 async def send_view(event, pack: dict):
     """Post a packed view and record what the message now shows."""
-    sent = await reply_rich(
-        event,
-        title=pack["title"],
-        body=pack["body"],
-        footer=pack["footer"],
-        buttons=pack["buttons"],
-    )
-    if sent is not None and pack.get("view"):
-        db.remember_view(event.chat_id, sent.id, pack["view"], pack["params"])
-    return sent
+    result = await send_rich_message(event.client, event.chat_id, pack["rich"], pack["buttons"])
+    message_id = sent_message_id(result)
+    if message_id and pack.get("view"):
+        db.remember_view(event.chat_id, message_id, pack["view"], pack["params"])
+    return result
 
 
 async def edit_view(event, pack: dict):
     """Replace the contents of the message a callback came from."""
-    await edit_rich(
-        event,
-        title=pack["title"],
-        body=pack["body"],
-        footer=pack["footer"],
-        buttons=pack["buttons"],
-    )
+    await edit_rich_message(event.client, event, pack["rich"], pack["buttons"])
     message_id = getattr(event, "message_id", None)
     if message_id and pack.get("view"):
         db.remember_view(event.chat_id, message_id, pack["view"], pack["params"])
@@ -63,21 +56,27 @@ async def edit_view(event, pack: dict):
 
 def _pack(title, body, footer, rows, chat_id, user_id, view=None, params=None):
     return {
-        "title": title,
-        "body": body,
-        "footer": footer,
+        "rich": compose(title, body, footer),
         "buttons": buttons.build(rows, chat_id=chat_id, user_id=user_id),
         "view": view,
         "params": params or {},
     }
 
 
+def _listing(number: int, entry: dict, preview: str) -> str:
+    """One numbered line for a results or favourites page."""
+    line = f"**{number}. {escape_md(entry.get('word') or '-')}**  *{escape_md(_tab_label(entry['tab']))}*"
+    if preview:
+        line += f"\n{escape_md(preview)}"
+    return line
+
+
 # -- home ------------------------------------------------------------------
 
 
 def home_view(chat_id, user_id, *, first_name: str | None = None, linked: bool = False):
-    greeting = f"Hello {esc(first_name)}. " if first_name else ""
-    body = greeting + INTRO + "\n\n<b>Commands</b>\n" + _command_lines()
+    greeting = f"Hello {escape_md(first_name)}. " if first_name else ""
+    body = greeting + INTRO + "\n\n## Commands\n" + _command_lines()
 
     rows = [
         [link("Open the dictionary", config.WEB_APP_URL)],
@@ -96,7 +95,7 @@ def home_view(chat_id, user_id, *, first_name: str | None = None, linked: bool =
 def _command_lines() -> str:
     from handlers.common import COMMANDS
 
-    return "\n".join(f"/{name} {esc(desc.lower())}" for name, desc in COMMANDS)
+    return bullets([f"**/{name}** {escape_md(desc.lower())}" for name, desc in COMMANDS])
 
 
 # -- search results --------------------------------------------------------
@@ -110,11 +109,11 @@ def results_view(chat_id, user_id, *, q: str = "", tab: str = "all", sort: str =
     window = hits[page * per_page : page * per_page + per_page]
 
     scope = "all catalogues" if tab == "all" else entries.LABELS[tab].lower()
-    title = f"Search: {esc(q)}" if q else f"Browsing {scope}"
+    title = f"Search: {escape_md(q)}" if q else f"Browsing {scope}"
 
     if not hits:
         body = (
-            f"Nothing matched <b>{esc(q)}</b> in {esc(scope)}."
+            f"Nothing matched **{escape_md(q)}** in {escape_md(scope)}."
             if q
             else "The catalogue has not loaded yet. Please try again in a moment."
         )
@@ -127,10 +126,7 @@ def results_view(chat_id, user_id, *, q: str = "", tab: str = "all", sort: str =
     for offset, entry in enumerate(window, start=1):
         number = page * per_page + offset
         preview = truncate(one_line(entry.get("definition") or "No definition available."), 90)
-        lines.append(
-            f"<b>{number}. {esc(entry.get('word') or '-')}</b>  "
-            f"<i>{esc(_tab_label(entry['tab']))}</i>\n{esc(preview)}"
-        )
+        lines.append(_listing(number, entry, preview))
         label = truncate(f"{number}. {one_line(entry.get('word') or '-')}", 24)
         result_rows.append(
             act(label, "entry:open", {
@@ -174,7 +170,7 @@ def _tab_row(q, tab, sort):
 
 
 async def entry_view(chat_id, user_id, *, tab: str, entry_id: str, back: dict | None = None,
-                     gloss: str | None = None):
+                     gloss: str | None = None, heading_prefix: str | None = None):
     entry = entries.find(tab, entry_id)
     if entry is None:
         rows = [[act("Back", "home:show")]]
@@ -183,9 +179,12 @@ async def entry_view(chat_id, user_id, *, tab: str, entry_id: str, back: dict | 
 
     saved = await favourites.is_favourite(user_id, tab, entry_id)
 
-    body = f"<i>{esc(_tab_label(tab))}</i>\n\n{esc(entry.get('definition') or 'No definition available.')}"
+    body = (
+        f"*{escape_md(_tab_label(tab))}*\n\n"
+        f"{escape_md(entry.get('definition') or 'No definition available.')}"
+    )
     if gloss:
-        body += f"\n\n<i>In English: {esc(gloss)}</i>"
+        body += f"\n\n*In English: {escape_md(gloss)}*"
 
     added = format_date(entry.get("created_at"))
     footer = f"Added {added}" if added else None
@@ -210,7 +209,10 @@ async def entry_view(chat_id, user_id, *, tab: str, entry_id: str, back: dict | 
     else:
         rows.append([act("Back", "home:show")])
 
-    return _pack(esc(entry.get("word") or "-"), body, footer, rows, chat_id, user_id,
+    title = escape_md(entry.get("word") or "-")
+    if heading_prefix:
+        title = f"{heading_prefix}: {title}"
+    return _pack(title, body, footer, rows, chat_id, user_id,
                  "entry", {"tab": tab, "id": entry_id, "back": back})
 
 
@@ -249,10 +251,7 @@ async def favourites_view(chat_id, user_id, *, page: int = 0):
     for offset, entry in enumerate(window, start=1):
         number = page * per_page + offset
         preview = truncate(one_line(entry.get("definition") or ""), 80)
-        lines.append(
-            f"<b>{number}. {esc(entry.get('word') or '-')}</b>  <i>{esc(_tab_label(entry['tab']))}</i>"
-            + (f"\n{esc(preview)}" if preview else "")
-        )
+        lines.append(_listing(number, entry, preview))
         entry_rows.append(
             act(truncate(f"{number}. {one_line(entry.get('word') or '-')}", 20), "entry:open",
                 {"tab": entry["tab"], "id": entry["id"], "back": {"v": "favs", "p": page}})

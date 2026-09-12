@@ -15,8 +15,9 @@ from handlers.common import cmd, safe, track
 from services import backup_codes, entries, external, scheduler
 from services.buttons import on_action
 from utils import ratelimit
-from utils.rich import reply_rich
-from utils.text import esc, format_date
+from utils.reply import reply_rich
+from utils.rich import compose, table
+from utils.text import format_date
 
 log = logging.getLogger("search")
 
@@ -28,20 +29,43 @@ LOADING = (
 
 async def run_search(event, query: str, tab: str = "all"):
     if entries.is_empty():
-        await reply_rich(event, title="Not ready yet", body=LOADING)
+        await reply_rich(event, compose("Not ready yet", LOADING))
         return
 
     if not ratelimit.allow(event.sender_id, "search", 30, 60):
         wait = ratelimit.retry_after(event.sender_id, "search", 60)
-        await reply_rich(
-            event,
-            title="Slow down a moment",
-            body=f"That is a lot of searches at once. Please try again in {wait} seconds.",
-        )
+        await reply_rich(event, compose(
+            "Slow down a moment",
+            f"That is a lot of searches at once. Please try again in {wait} seconds.",
+        ))
         return
 
     pack = views.results_view(event.chat_id, event.sender_id, q=query, tab=tab, sort="alpha-asc", page=0)
     await views.send_view(event, pack)
+
+
+def build_stats() -> dict:
+    """The /stats screen: one table row per catalogue, then the total."""
+    counts = entries.counts()
+    rows = [[entries.LABELS[tab], counts[tab]] for tab in entries.TAB_ORDER]
+    rows.append(["Total", sum(counts.values())])
+
+    newest = ""
+    for tab in entries.TAB_ORDER:
+        for entry in entries.all_entries(tab):
+            stamp = entry.get("created_at") or ""
+            if stamp > newest:
+                newest = stamp
+
+    age = entries.cache_age_seconds()
+    footer_bits = []
+    if newest:
+        footer_bits.append(f"Newest entry added {format_date(newest)}")
+    if age is not None:
+        footer_bits.append(f"catalogue refreshed {age // 60} minutes ago")
+
+    return compose("Catalogue", table(["Entries"], rows),
+                   ", ".join(footer_bits) if footer_bits else None)
 
 
 def register(client):
@@ -51,7 +75,7 @@ def register(client):
         track(event)
         entry = entries.random_entry()
         if entry is None:
-            await reply_rich(event, title="Not ready yet", body=LOADING)
+            await reply_rich(event, compose("Not ready yet", LOADING))
             return
         pack = await views.entry_view(
             event.chat_id, event.sender_id,
@@ -65,41 +89,21 @@ def register(client):
         track(event)
         entry = entries.word_of_the_day()
         if entry is None:
-            await reply_rich(event, title="Not ready yet", body=LOADING)
+            await reply_rich(event, compose("Not ready yet", LOADING))
             return
         pack = await views.entry_view(
             event.chat_id, event.sender_id,
             tab="dict", entry_id=entry["id"], back={"v": "home"},
+            heading_prefix="Word of the day",
         )
-        pack["title"] = f"Word of the day: {pack['title']}"
         await views.send_view(event, pack)
 
     @client.on(cmd("stats"))
     @safe
     async def on_stats(event):
         track(event)
-        counts = entries.counts()
-        lines = [
-            f"<b>{esc(entries.LABELS[tab])}</b>: {counts[tab]}"
-            for tab in entries.TAB_ORDER
-        ]
-        newest = ""
-        for tab in entries.TAB_ORDER:
-            for entry in entries.all_entries(tab):
-                stamp = entry.get("created_at") or ""
-                if stamp > newest:
-                    newest = stamp
-        body = "\n".join(lines) + f"\n\n<b>Total</b>: {sum(counts.values())}"
-        age = entries.cache_age_seconds()
-        footer_bits = []
-        if newest:
-            footer_bits.append(f"Newest entry added {format_date(newest)}")
-        if age is not None:
-            footer_bits.append(f"catalogue refreshed {age // 60} minutes ago")
-        await reply_rich(
-            event, title="Catalogue", body=body,
-            footer=", ".join(footer_bits) if footer_bits else None,
-        )
+        rich = build_stats()
+        await reply_rich(event, rich)
 
     # Any plain message in a private chat is either an answer to a pending step or a search.
     @client.on(events.NewMessage(
@@ -190,9 +194,9 @@ async def wotd_show(event, params):
         await event.answer("The catalogue is still loading.", alert=True)
         return
     pack = await views.entry_view(
-        event.chat_id, event.sender_id, tab="dict", entry_id=entry["id"], back={"v": "home"}
+        event.chat_id, event.sender_id, tab="dict", entry_id=entry["id"], back={"v": "home"},
+        heading_prefix="Word of the day",
     )
-    pack["title"] = f"Word of the day: {pack['title']}"
     await views.edit_view(event, pack)
     await event.answer()
 

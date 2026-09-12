@@ -183,8 +183,9 @@ telegram-bot/
 │   ├── scheduler.py     SQLite job queue
 │   └── external.py      Third party APIs with fallbacks and caching
 ├── utils/
-│   ├── rich.py          send_rich_message, the one way messages are sent
-│   ├── text.py          Escaping, truncation, the dash sanitiser
+│   ├── reply.py         Sending and editing Rich Messages through the raw TL requests
+│   ├── rich.py          Rich Markdown formatting: compose, tables, escaping, the plain fallback
+│   ├── text.py          Truncation, dates, the dash sanitiser
 │   └── ratelimit.py     Per user cooldowns
 └── tests/               Offline test suite, no network and no Telegram
 ```
@@ -217,9 +218,15 @@ browser has been unpaired there. Both are ordinary rows in the job queue.
 [ZenQuotes](https://zenquotes.io) as a fallback. Both are free and keyless, responses are
 cached, and a failure just means the quote is left out.
 
-**Message style.** Everything goes out through `send_rich_message`: HTML formatting, a bold
-title, escaped database text, automatic splitting at the message limit, and one retry after a
-flood wait. Em dashes and en dashes are removed from outbound copy.
+**Message style.** Structured screens go out as genuine Telegram Rich Messages (Bot API
+10.1+): real headings, bold, bullet lists and pipe tables, written once as Rich Markdown in
+`compose()`. Every payload also carries a plain text fallback, derived from the same markdown,
+which fills the request's mandatory `message` field, is what older clients display, and is what
+gets sent if Telegram rejects the rich payload. Telethon's high level `send_message` does not
+expose `rich_message`, so `utils/reply.py` uses the raw `messages.SendMessageRequest`,
+`EditMessageRequest`, `EditInlineBotMessageRequest` and `SetInlineBotResultsRequest`. No
+`parse_mode` is used anywhere. Database text is escaped for the Markdown dialect, and em dashes
+and en dashes are removed from outbound copy. Requires Telethon 1.44 or newer.
 
 ## Tests
 
@@ -228,7 +235,7 @@ pip install -r requirements-dev.txt
 python -m pytest
 ```
 
-210 tests, all offline. Telegram is replaced by small fakes and Supabase by an in-memory
+241 tests, all offline. Telegram is replaced by small fakes and Supabase by an in-memory
 PostgREST stub, so nothing reaches the network and no credentials are needed. One test
 shells out to Node, if it is installed, to prove the bot and the website hash a recovery
 code identically.

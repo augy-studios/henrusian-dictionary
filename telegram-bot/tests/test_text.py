@@ -1,7 +1,7 @@
-"""The copy rules, and the small formatting helpers."""
+"""The copy rules, the Rich Markdown formatters, and the small text helpers."""
 
-from utils.rich import compose
-from utils.text import esc, format_date, one_line, plural, sanitise, split_for_telegram, truncate
+from utils.rich import bullets, compose, escape_cell, escape_md, table, to_plain
+from utils.text import format_date, one_line, plural, sanitise, truncate
 
 
 class TestSanitiser:
@@ -30,40 +30,81 @@ class TestSanitiser:
     def test_handles_empty(self):
         assert sanitise("") == ""
 
+    def test_leaves_a_table_rule_alone(self):
+        rule = "| --- | --- |"
+        assert sanitise(rule) == rule
+
 
 class TestCompose:
-    def test_applies_the_dash_rules(self):
-        text = compose("Title — here", "Body – text", "8–16")
-        assert "—" not in text and "–" not in text
-        assert "Title, here" in text and "8 to 16" in text
+    def test_returns_markdown_and_a_plain_fallback(self):
+        rich = compose("Word", "**bold** body", "a footer")
+        assert rich["markdown"] == "# Word\n\n**bold** body\n\n*a footer*"
+        assert rich["fallback"] == "Word\n\nbold body\n\na footer"
 
-    def test_keeps_html(self):
-        assert compose("Word", "<b>bold</b>").startswith("<b>Word</b>")
+    def test_applies_the_dash_rules_to_both(self):
+        rich = compose("Title — here", "Body – text", "8–16")
+        for text in rich.values():
+            assert "—" not in text and "–" not in text
+            assert "Title, here" in text and "8 to 16" in text
 
     def test_parts_are_optional(self):
-        assert compose(body="only the body") == "only the body"
+        assert compose(body="only the body") == {"markdown": "only the body",
+                                                 "fallback": "only the body"}
+
+    def test_the_fallback_is_never_empty_when_there_is_a_title(self):
+        assert compose("Just a title")["fallback"] == "Just a title"
 
 
 class TestEscaping:
-    def test_escapes_markup_from_the_database(self):
-        assert esc("<script>x</script>") == "&lt;script&gt;x&lt;/script&gt;"
+    def test_escapes_every_markdown_special(self):
+        assert escape_md(r"a*b_c~d`e|f[g]h#i>j=k\l") == r"a\*b\_c\~d\`e\|f\[g\]h\#i\>j\=k\\l"
 
     def test_none_becomes_empty(self):
-        assert esc(None) == ""
+        assert escape_md(None) == ""
+
+    def test_numbers_are_accepted(self):
+        assert escape_md(12) == "12"
+
+    def test_a_cell_flattens_newlines_and_pipes(self):
+        assert escape_cell("one\ntwo | three") == r"one two \| three"
 
 
-class TestSplitting:
-    def test_short_text_is_one_chunk(self):
-        assert split_for_telegram("short") == ["short"]
+class TestTable:
+    def test_the_first_column_is_a_blank_headed_label(self):
+        assert table(["Entries"], [["Words", 10]]).splitlines() == [
+            "|  | Entries |",
+            "| --- | --- |",
+            "| Words | 10 |",
+        ]
 
-    def test_long_text_respects_the_limit(self):
-        chunks = split_for_telegram("paragraph text\n\n" * 900)
-        assert len(chunks) > 1
-        assert all(len(chunk) <= 4000 for chunk in chunks)
+    def test_cells_are_escaped(self):
+        assert r"| a\|b | 1 |" in table(["N"], [["a|b", 1]])
 
-    def test_nothing_is_lost(self):
-        source = "word " * 3000
-        assert "".join(split_for_telegram(source)).replace(" ", "") == source.replace(" ", "")
+    def test_bullets(self):
+        assert bullets(["one", "two"]) == "- one\n- two"
+
+
+class TestToPlain:
+    def test_strips_headings_and_emphasis(self):
+        assert to_plain("# Title\n\n## Sub\n**b** *i* _i_ ~~s~~ `c`") == "Title\n\nSub\nb i i s c"
+
+    def test_keeps_escaped_characters_literally(self):
+        assert to_plain(r"a \*real\* star and 2\*3") == "a *real* star and 2*3"
+
+    def test_a_two_column_table_becomes_key_value_lines(self):
+        plain = to_plain(table(["Entries"], [["Words", 10], ["Idioms", 1]]))
+        assert plain == "Words: 10\nIdioms: 1"
+
+    def test_a_wider_table_keeps_its_header(self):
+        markdown = "|  | Count | Note |\n| --- | --- | --- |\n| A | 1 | x |"
+        assert to_plain(markdown) == "Count | Note\nA | 1 | x"
+
+    def test_an_escaped_pipe_in_a_cell_does_not_split_it(self):
+        plain = to_plain(table(["N"], [["a|b", 1]]))
+        assert plain == "a|b: 1"
+
+    def test_a_link_keeps_its_text(self):
+        assert to_plain("see [the site](https://example.test)") == "see the site"
 
 
 class TestHelpers:

@@ -14,8 +14,8 @@ import db
 from handlers.common import cmd, on_pending, safe, track
 from services import buttons, entries, external, scheduler
 from services.buttons import act, on_action
-from utils.rich import edit_rich, reply_rich, send_rich_message
-from utils.text import esc
+from utils.reply import edit_rich_message, reply_rich, send_rich_message
+from utils.rich import compose, escape_md, table
 
 log = logging.getLogger("subscriptions")
 
@@ -89,37 +89,31 @@ def _hour_rows(tz_name: str):
     return rows
 
 
-def settings_pack(chat_id: int, user_id: int) -> dict:
+def build_settings(chat_id: int, user_id: int) -> tuple[dict, list]:
     """The settings screen, shared by the command and the callbacks."""
     row = subscription(chat_id)
     tz_name = row["timezone"] if row else db.user_timezone(user_id)
 
     if row and row["active"]:
-        body = (
-            f"<b>Daily word</b>: on, at {row['hour']:02d}:00\n"
-            f"<b>Timezone</b>: {esc(tz_name)}\n"
-            f"<b>Quote included</b>: {'yes' if row['include_quote'] else 'no'}"
-        )
+        body = table(["Setting"], [
+            ["Daily word", f"on, at {row['hour']:02d}:00"],
+            ["Timezone", tz_name],
+            ["Quote included", "yes" if row["include_quote"] else "no"],
+        ])
         rows = [
             [act("Change the time", "sub:ask"), act("Change timezone", "settings:tz")],
             [act("Quote: on" if row["include_quote"] else "Quote: off", "settings:quote")],
             [act("Stop the daily word", "sub:off")],
         ]
     else:
-        body = (
-            f"<b>Daily word</b>: off\n<b>Timezone</b>: {esc(tz_name)}\n\n"
-            "Turn the daily word on and a new entry arrives here each morning."
-        )
+        body = table(["Setting"], [["Daily word", "off"], ["Timezone", tz_name]])
+        body += "\n\nTurn the daily word on and a new entry arrives here each morning."
         rows = [
             [act("Turn on the daily word", "sub:ask")],
             [act("Change timezone", "settings:tz")],
         ]
 
-    return {
-        "title": "Settings",
-        "body": body,
-        "buttons": buttons.build(rows, chat_id=chat_id, user_id=user_id),
-    }
+    return compose("Settings", body), buttons.build(rows, chat_id=chat_id, user_id=user_id)
 
 
 def register(client):
@@ -136,11 +130,11 @@ def register(client):
         if existing and existing["active"]:
             body = (
                 f"You already get the daily word at {existing['hour']:02d}:00 "
-                f"{esc(existing['timezone'])}. Pick a different hour to move it."
+                f"{escape_md(existing['timezone'])}. Pick a different hour to move it."
             )
         await reply_rich(
-            event, title="Word of the day", body=body,
-            buttons=buttons.build(_hour_rows(tz_name), chat_id=event.chat_id, user_id=event.sender_id),
+            event, compose("Word of the day", body),
+            buttons.build(_hour_rows(tz_name), chat_id=event.chat_id, user_id=event.sender_id),
         )
 
     @client.on(cmd("unsub", "unsubscribe", "stopdaily"))
@@ -149,23 +143,24 @@ def register(client):
         track(event)
         existing = subscription(event.chat_id)
         if not existing or not existing["active"]:
-            await reply_rich(
-                event, title="Not subscribed",
-                body="You are not getting a daily word here, so there is nothing to stop.",
-            )
+            await reply_rich(event, compose(
+                "Not subscribed",
+                "You are not getting a daily word here, so there is nothing to stop.",
+            ))
             return
         db.execute("UPDATE subscriptions SET active = 0 WHERE chat_id = ?", (event.chat_id,))
         scheduler.cancel(_job_key(event.chat_id))
-        await reply_rich(
-            event, title="Daily word stopped",
-            body="No more daily messages. Send /sub whenever you want them back.",
-        )
+        await reply_rich(event, compose(
+            "Daily word stopped",
+            "No more daily messages. Send /sub whenever you want them back.",
+        ))
 
     @client.on(cmd("settings"))
     @safe
     async def on_settings(event):
         track(event)
-        await reply_rich(event, **settings_pack(event.chat_id, event.sender_id))
+        rich, keyboard = build_settings(event.chat_id, event.sender_id)
+        await reply_rich(event, rich, keyboard)
 
 
 # -- callbacks -------------------------------------------------------------
@@ -174,10 +169,10 @@ def register(client):
 @on_action("sub:ask")
 async def cb_sub_ask(event, params):
     tz_name = db.user_timezone(event.sender_id)
-    await edit_rich(
-        event, title="Word of the day",
-        body="Pick the hour you want it to arrive.",
-        buttons=buttons.build(_hour_rows(tz_name), chat_id=event.chat_id, user_id=event.sender_id),
+    await edit_rich_message(
+        event.client, event,
+        compose("Word of the day", "Pick the hour you want it to arrive."),
+        buttons.build(_hour_rows(tz_name), chat_id=event.chat_id, user_id=event.sender_id),
     )
     await event.answer()
 
@@ -192,12 +187,14 @@ async def cb_sub_hour(event, params):
     _save(event.chat_id, event.sender_id, hour, tz_name, include_quote)
     when = _schedule(event.chat_id, hour, tz_name)
 
-    await edit_rich(
-        event,
-        title="Daily word is on",
-        body=f"A word arrives here every day at {hour:02d}:00 {esc(tz_name)}.",
-        footer=f"First one lands {when.strftime('%d %b at %H:%M')} your time.",
-        buttons=buttons.build(
+    await edit_rich_message(
+        event.client, event,
+        compose(
+            "Daily word is on",
+            f"A word arrives here every day at {hour:02d}:00 {escape_md(tz_name)}.",
+            f"First one lands {when.strftime('%d %b at %H:%M')} your time.",
+        ),
+        buttons.build(
             [[act("Change the time", "sub:ask"), act("Stop it", "sub:off")]],
             chat_id=event.chat_id, user_id=event.sender_id,
         ),
@@ -209,11 +206,12 @@ async def cb_sub_hour(event, params):
 async def cb_sub_off(event, params):
     db.execute("UPDATE subscriptions SET active = 0 WHERE chat_id = ?", (event.chat_id,))
     scheduler.cancel(_job_key(event.chat_id))
-    await edit_rich(
-        event, title="Daily word stopped",
-        body="No more daily messages. Send /sub whenever you want them back.",
-        buttons=buttons.build([[act("Turn it back on", "sub:ask")]],
-                              chat_id=event.chat_id, user_id=event.sender_id),
+    await edit_rich_message(
+        event.client, event,
+        compose("Daily word stopped",
+                "No more daily messages. Send /sub whenever you want them back."),
+        buttons.build([[act("Turn it back on", "sub:ask")]],
+                      chat_id=event.chat_id, user_id=event.sender_id),
     )
     await event.answer("Stopped")
 
@@ -224,9 +222,11 @@ async def cb_settings_tz(event, params):
     await event.answer()
     await send_rich_message(
         event.client, event.chat_id,
-        title="Which timezone?",
-        body="Reply with an IANA timezone name, for example <code>Asia/Singapore</code>, "
-             "<code>Europe/London</code> or <code>America/New_York</code>. Send /cancel to stop.",
+        compose(
+            "Which timezone?",
+            "Reply with an IANA timezone name, for example `Asia/Singapore`, "
+            "`Europe/London` or `America/New_York`. Send /cancel to stop.",
+        ),
     )
 
 
@@ -240,7 +240,8 @@ async def cb_settings_quote(event, params):
         "UPDATE subscriptions SET include_quote = ? WHERE chat_id = ?",
         (0 if row["include_quote"] else 1, event.chat_id),
     )
-    await edit_rich(event, **settings_pack(event.chat_id, event.sender_id))
+    rich, keyboard = build_settings(event.chat_id, event.sender_id)
+    await edit_rich_message(event.client, event, rich, keyboard)
     await event.answer("Updated")
 
 
@@ -248,11 +249,10 @@ async def cb_settings_quote(event, params):
 async def pending_timezone(event, pending):
     name = event.raw_text.strip()
     if not valid_timezone(name):
-        await reply_rich(
-            event,
-            title="That timezone was not recognised",
-            body="Use an IANA name such as <code>Asia/Singapore</code>. Send /cancel to stop.",
-        )
+        await reply_rich(event, compose(
+            "That timezone was not recognised",
+            "Use an IANA name such as `Asia/Singapore`. Send /cancel to stop.",
+        ))
         return
 
     db.set_pending(event.sender_id, None)
@@ -266,7 +266,7 @@ async def pending_timezone(event, pending):
         footer = f"The next daily word lands {when.strftime('%d %b at %H:%M')} your time."
 
     await reply_rich(
-        event, title="Timezone saved", body=f"Times now use <b>{esc(name)}</b>.", footer=footer
+        event, compose("Timezone saved", f"Times now use **{escape_md(name)}**.", footer)
     )
 
 
@@ -288,19 +288,19 @@ async def daily_wotd(client, payload):
                           dedupe_key=_job_key(chat_id))
         return
 
-    body = f"<b>{esc(entry.get('word') or '-')}</b>\n\n{esc(entry.get('definition') or '')}"
+    body = f"## {escape_md(entry.get('word') or '-')}\n{escape_md(entry.get('definition') or '')}"
     if row["include_quote"]:
         quote = await external.quote_cached_or_fresh()
         if quote:
-            body += f"\n\n<i>{esc(quote['text'])}</i>\n{esc(quote['author'])}"
+            body += f"\n\n*{escape_md(quote['text'])}*\n{escape_md(quote['author'])}"
 
     rows = [
         [act("Open it", "entry:open", {"tab": "dict", "id": entry["id"], "back": {"v": "home"}})],
         [act("Another entry", "random:roll", {"tab": "all"}), act("Stop the daily word", "sub:off")],
     ]
     await send_rich_message(
-        client, chat_id, title="Word of the day", body=body,
-        buttons=buttons.build(rows, chat_id=chat_id, user_id=row["user_id"]),
+        client, chat_id, compose("Word of the day", body),
+        buttons.build(rows, chat_id=chat_id, user_id=row["user_id"]),
     )
 
     _schedule(chat_id, row["hour"], row["timezone"])

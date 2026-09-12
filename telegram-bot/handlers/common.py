@@ -8,7 +8,8 @@ from telethon import events
 
 import config
 import db
-from utils.rich import reply_rich
+from utils.reply import reply_rich
+from utils.rich import compose
 
 log = logging.getLogger("handlers")
 
@@ -95,11 +96,10 @@ def safe(func):
                 if getattr(event, "data", None) is not None:
                     await event.answer("Something went wrong. Please try again.", alert=True)
                 else:
-                    await reply_rich(
-                        event,
-                        title="Something went wrong",
-                        body="That did not work. Please try again in a moment.",
-                    )
+                    await reply_rich(event, compose(
+                        "Something went wrong",
+                        "That did not work. Please try again in a moment.",
+                    ))
             except Exception:
                 pass
 
@@ -112,12 +112,11 @@ def private_only(func):
     @functools.wraps(func)
     async def wrapper(event, *args, **kwargs):
         if not is_private(event):
-            await reply_rich(
-                event,
-                title="Please continue in a private chat",
-                body="This command deals with your account, so it only works in a direct "
-                     "message. Open a chat with the bot and try again there.",
-            )
+            await reply_rich(event, compose(
+                "Please continue in a private chat",
+                "This command deals with your account, so it only works in a direct "
+                "message. Open a chat with the bot and try again there.",
+            ))
             return
         return await func(event, *args, **kwargs)
 
@@ -156,10 +155,6 @@ async def tracked_sender(event):
     if sender is None:
         return None
     return db.touch_user(sender)
-
-
-def command_list_html() -> str:
-    return "\n".join(f"/{name} {desc}" for name, desc in COMMANDS)
 
 
 def botfather_command_block() -> str:

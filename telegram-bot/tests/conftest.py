@@ -254,14 +254,50 @@ def catalogue():
 
 
 class FakeClient:
-    """Records what would have been sent."""
+    """Records what would have been sent.
+
+    Rich messages go out as raw TL requests through client(request), so the fake is callable
+    and records those. The plain send_message and edit_message are the fallback path.
+    Every record carries "text" (the plain fallback) and, for a rich send, "markdown".
+    """
 
     def __init__(self):
         self.sent: list[dict] = []
+        self.edits: list[dict] = []
+
+    def build_reply_markup(self, buttons):
+        return buttons or None
+
+    async def __call__(self, request):
+        from telethon import types
+        from telethon.tl import functions
+
+        markdown = request.rich_message.markdown if request.rich_message else None
+        if isinstance(request, functions.messages.SendMessageRequest):
+            self.sent.append({"chat": request.peer, "text": request.message,
+                              "markdown": markdown, "buttons": request.reply_markup})
+            return types.Updates(
+                updates=[types.UpdateMessageID(id=len(self.sent), random_id=0)],
+                users=[], chats=[], date=None, seq=0,
+            )
+        if isinstance(request, functions.messages.EditMessageRequest):
+            self.edits.append({"chat": request.peer, "id": request.id, "text": request.message,
+                               "markdown": markdown, "buttons": request.reply_markup})
+            return None
+        raise AssertionError(f"the fake client does not understand {type(request).__name__}")
 
     async def send_message(self, chat, text, **kwargs):
-        self.sent.append({"chat": chat, "text": text, "buttons": kwargs.get("buttons"), **kwargs})
-        return type("Message", (), {"id": len(self.sent)})()
+        from telethon import types
+
+        self.sent.append({"chat": chat, "text": text, "markdown": None,
+                          "buttons": kwargs.get("buttons"), **kwargs})
+        # Telethon hands back a patched Message, which is a types.Message, so the fake does too.
+        peer = types.PeerUser(user_id=chat if isinstance(chat, int) else 0)
+        return types.Message(id=len(self.sent), peer_id=peer, date=None, message=text)
+
+    async def edit_message(self, chat, message_id, text=None, **kwargs):
+        self.edits.append({"chat": chat, "id": message_id, "text": text, "markdown": None,
+                           "buttons": kwargs.get("buttons")})
 
     async def send_file(self, chat, file, **kwargs):
         self.sent.append({"chat": chat, "file": file, **kwargs})
@@ -274,6 +310,14 @@ class FakeClient:
             return func
 
         return decorator
+
+
+class FakeQuery:
+    """The UpdateBotCallbackQuery behind a callback event: where the message lives."""
+
+    def __init__(self, peer, msg_id):
+        self.peer = peer
+        self.msg_id = msg_id
 
 
 class FakeSender:
@@ -297,18 +341,12 @@ class FakeEvent:
         self.is_private = is_private
         self.answered = None
         self.alerted = False
-        self.edited = None
-        self.edited_buttons = None
         self.pattern_match = None
+        self.query = FakeQuery(self.chat_id, self.message_id)
 
     async def answer(self, text=None, alert=False):
         self.answered = text
         self.alerted = alert
-
-    async def edit(self, text, **kwargs):
-        self.edited = text
-        self.edited_buttons = kwargs.get("buttons")
-        return self
 
     async def get_sender(self):
         return FakeSender(self.sender_id)
@@ -320,6 +358,27 @@ class FakeEvent:
 
     def last_text(self):
         return self.client.sent[-1]["text"] if self.client.sent else None
+
+    def _last_edit(self):
+        mine = [e for e in self.client.edits
+                if e["chat"] == self.chat_id and e["id"] == self.message_id]
+        return mine[-1] if mine else None
+
+    @property
+    def edited(self):
+        """Plain fallback text of the last edit made to this event's message."""
+        edit = self._last_edit()
+        return edit["text"] if edit else None
+
+    @property
+    def edited_markdown(self):
+        edit = self._last_edit()
+        return edit["markdown"] if edit else None
+
+    @property
+    def edited_buttons(self):
+        edit = self._last_edit()
+        return edit["buttons"] if edit else None
 
 
 @pytest.fixture

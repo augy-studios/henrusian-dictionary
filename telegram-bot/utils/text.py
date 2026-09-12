@@ -5,7 +5,6 @@ to write dashes and let it clean up. Anything it changes is logged at debug leve
 the source string can be fixed properly.
 """
 
-import html
 import logging
 import re
 
@@ -41,11 +40,6 @@ def sanitise(text: str) -> str:
     return text
 
 
-def esc(value) -> str:
-    """HTML escape anything headed for a message body."""
-    return html.escape(str(value if value is not None else ""), quote=False)
-
-
 def truncate(value: str, limit: int) -> str:
     value = (value or "").strip()
     if len(value) <= limit:
@@ -55,29 +49,6 @@ def truncate(value: str, limit: int) -> str:
 
 def one_line(value: str) -> str:
     return re.sub(r"\s+", " ", (value or "")).strip()
-
-
-def split_for_telegram(text: str, limit: int = 4000) -> list[str]:
-    """Split on paragraph boundaries, then line boundaries, then hard characters."""
-    if len(text) <= limit:
-        return [text]
-
-    chunks: list[str] = []
-    remaining = text
-    while len(remaining) > limit:
-        window = remaining[:limit]
-        cut = window.rfind("\n\n")
-        if cut < limit // 2:
-            cut = window.rfind("\n")
-        if cut < limit // 2:
-            cut = window.rfind(" ")
-        if cut <= 0:
-            cut = limit
-        chunks.append(remaining[:cut].rstrip())
-        remaining = remaining[cut:].lstrip()
-    if remaining:
-        chunks.append(remaining)
-    return chunks
 
 
 def plural(count: int, singular: str, many: str | None = None) -> str:

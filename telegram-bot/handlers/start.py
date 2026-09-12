@@ -10,22 +10,23 @@ from handlers import views
 from handlers.common import args_of, cmd, safe, track, tracked_sender
 from services import linking
 from services.buttons import on_action
-from utils.rich import reply_rich
+from utils.reply import reply_rich
+from utils.rich import compose
 
 PRIVACY = (
-    "<b>What is stored</b>\n"
+    "## What is stored\n"
     "Your Telegram numeric id, your username and first name, your timezone, and the time you "
     "last used the bot. If you save entries before linking, those saves are kept on the "
     "server that runs the bot until you link.\n\n"
-    "<b>If you link a browser</b>\n"
+    "## If you link a browser\n"
     "The link records your Telegram id against an identifier that browser made up for itself, "
     "so favourites can be shared. There is no account, no email address and no password "
     "anywhere in this. Recovery codes are stored only as hashes, and a hash cannot be turned "
     "back into a code.\n\n"
-    "<b>What is never stored</b>\n"
+    "## What is never stored\n"
     "Message contents, other than a search term while the search runs. There is no logging of "
     "what you look up.\n\n"
-    "<b>Removing your data</b>\n"
+    "## Removing your data\n"
     "Send /unlink to break the link, and send /privacy again to see this notice. To have "
     "everything erased, including the local record, contact the maintainer through the repository."
 )
@@ -63,7 +64,7 @@ def register(client):
     @safe
     async def on_privacy(event):
         track(event)
-        await reply_rich(event, title="Privacy", body=PRIVACY)
+        await reply_rich(event, compose("Privacy", PRIVACY))
 
     @client.on(cmd("cancel"))
     @safe
@@ -72,13 +73,11 @@ def register(client):
         pending = db.get_pending(event.sender_id)
         db.set_pending(event.sender_id, None)
         if pending:
-            await reply_rich(event, title="Cancelled", body="Nothing else is waiting on you.")
+            await reply_rich(event, compose("Cancelled", "Nothing else is waiting on you."))
         else:
-            await reply_rich(
-                event,
-                title="Nothing to cancel",
-                body="There was no step in progress, so nothing changed.",
-            )
+            await reply_rich(event, compose(
+                "Nothing to cancel", "There was no step in progress, so nothing changed.",
+            ))
 
 
 @on_action("home:show")

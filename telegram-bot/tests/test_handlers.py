@@ -1,5 +1,7 @@
 """The handlers, driven through the same paths Telegram would take."""
 
+import re
+
 import db
 from handlers import linking as linking_handlers
 from handlers import views
@@ -141,8 +143,8 @@ class TestStatus:
         title, body, rows = run(linking_handlers.status_body(TG))
         assert title == "Paired"
         assert "One browser is" in body
-        assert "Firefox on Linux" in body
-        assert "Saved entries</b>: 1" in body
+        assert "- Firefox on Linux" in body
+        assert "| Saved entries | 1 |" in body
 
     def test_several_browsers_are_listed(self, rest, run, known_user, catalogue):
         seed_token(rest, label="Firefox on Linux")
@@ -272,13 +274,26 @@ class TestCodeApproval:
         request_id = seed_request(rest)
         ev = event(sender_id=TG)
         fire(run, "codes:approve", ev, {"r": request_id})
-        assert "<code>" not in ev.edited
+        assert re.search(r"\b[A-Z0-9]{4}-[A-Z0-9]{4}-[A-Z0-9]{4}\b", ev.edited) is None
+        assert re.search(r"\b[A-Z0-9]{4}-[A-Z0-9]{4}-[A-Z0-9]{4}\b", ev.edited_markdown) is None
 
     def test_rejecting_says_nothing_changed(self, rest, run, event, known_user):
         request_id = seed_request(rest)
         ev = event(sender_id=TG)
         fire(run, "codes:reject", ev, {"r": request_id})
         assert "No codes were created" in ev.edited
+        assert "# Request rejected" in ev.edited_markdown
+
+    def test_rejecting_twice_drops_the_stale_buttons(self, rest, run, event, known_user):
+        from telethon import types
+
+        request_id = seed_request(rest)
+        fire(run, "codes:reject", event(sender_id=TG), {"r": request_id})
+        ev = event(sender_id=TG)
+        fire(run, "codes:reject", ev, {"r": request_id})
+        assert "Nothing to reject" in ev.edited
+        # An empty inline keyboard is what removes the old one; None would keep it.
+        assert ev.edited_buttons == types.ReplyInlineMarkup(rows=[])
 
     def test_a_stranger_cannot_approve(self, rest, run, event, known_user):
         request_id = seed_request(rest)
@@ -299,6 +314,7 @@ class TestCodeRequestPoll:
         assert "Approve new recovery codes" in text
         assert "Chrome on Android" in text
         assert "replaces the 1 unused code" in text
+        assert client.sent[0]["markdown"].startswith("# Approve new recovery codes")
 
         run(linking_handlers.code_request_poll(client, {}))
         assert len(client.sent) == 1
@@ -347,11 +363,14 @@ class TestViews:
 
         pack = views.home_view(TG, TG, first_name="Augy", linked=False)
         for name, _ in COMMANDS:
-            assert f"/{name}" in pack["body"]
+            assert f"- **/{name}**" in pack["rich"]["markdown"]
+            assert f"/{name}" in pack["rich"]["fallback"]
 
     def test_the_home_view_says_what_the_project_is(self, known_user):
         pack = views.home_view(TG, TG)
-        assert "Henrusian" in pack["body"] and "MIT" in pack["body"]
+        markdown = pack["rich"]["markdown"]
+        assert markdown.startswith("# Henrusian Dictionary")
+        assert "## Commands" in markdown and "MIT" in markdown
 
     def test_the_home_view_offers_the_donation_link(self, known_user):
         pack = views.home_view(TG, TG)
@@ -363,15 +382,30 @@ class TestViews:
         labels = [button.text for row in pack["buttons"] for button in row]
         assert "Another random" in labels
 
+    def test_an_entry_is_headed_by_its_word(self, run, known_user, catalogue):
+        pack = run(views.entry_view(TG, TG, tab="dict", entry_id="1"))
+        assert pack["rich"]["markdown"].startswith("# wataa\n")
+        assert pack["rich"]["fallback"].startswith("wataa\n")
+
+    def test_a_heading_prefix_is_applied(self, run, known_user, catalogue):
+        pack = run(views.entry_view(TG, TG, tab="dict", entry_id="1",
+                                   heading_prefix="Word of the day"))
+        assert pack["rich"]["markdown"].startswith("# Word of the day: wataa")
+
     def test_results_stay_within_the_page_size(self, known_user, catalogue):
         import config
 
         pack = views.results_view(TG, TG, q="", tab="dict", page=0)
-        assert pack["body"].count("<b>") <= config.RESULTS_PER_PAGE
+        numbered = re.findall(r"^\*\*\d+\. ", pack["rich"]["markdown"], re.MULTILINE)
+        assert 0 < len(numbered) <= config.RESULTS_PER_PAGE
+
+    def test_catalogue_text_is_escaped_for_markdown(self, run, known_user, catalogue):
+        catalogue._cache["dict"][0]["definition"] = "a *greeting* with_underscores | pipes"
+        pack = run(views.entry_view(TG, TG, tab="dict", entry_id="0"))
+        assert r"a \*greeting\* with\_underscores \| pipes" in pack["rich"]["markdown"]
+        assert "a *greeting* with_underscores | pipes" in pack["rich"]["fallback"]
 
     def test_outbound_copy_carries_no_dashes(self, run, known_user, catalogue):
-        from utils.rich import compose
-
         packs = [
             views.home_view(TG, TG, first_name="Augy"),
             views.results_view(TG, TG, q="henlo"),
@@ -380,5 +414,38 @@ class TestViews:
             run(views.favourites_view(TG, TG)),
         ]
         for pack in packs:
-            text = compose(pack["title"], pack["body"], pack["footer"])
-            assert "—" not in text and "–" not in text
+            for text in pack["rich"].values():
+                assert "—" not in text and "–" not in text
+
+    def test_a_sent_view_is_remembered_by_its_message_id(self, run, event, known_user, catalogue):
+        ev = event(sender_id=TG)
+        run(views.send_view(ev, views.results_view(TG, TG, q="henlo")))
+        assert ev.client.sent[-1]["markdown"].startswith("# Search: henlo")
+        row = db.one("SELECT view, message_id FROM ui_views WHERE chat_id = ?", (TG,))
+        assert row["view"] == "results" and row["message_id"] == len(ev.client.sent)
+
+
+class TestStructuredScreens:
+    def test_stats_is_a_table_with_a_total(self, known_user, catalogue):
+        from handlers.search import build_stats
+
+        rich = build_stats()
+        assert "| Words | 10 |" in rich["markdown"]
+        assert "| Total | 12 |" in rich["markdown"]
+        assert "Words: 10" in rich["fallback"] and "Total: 12" in rich["fallback"]
+
+    def test_health_lists_the_counters(self, known_user):
+        from handlers.admin import build_health
+
+        rich = build_health()
+        assert rich["markdown"].startswith("# Health")
+        assert "| Users seen | 1 |" in rich["markdown"]
+        assert "Users seen: 1" in rich["fallback"]
+
+    def test_settings_shows_the_timezone(self, known_user):
+        from handlers.subscriptions import build_settings
+
+        rich, keyboard = build_settings(TG, TG)
+        assert "| Daily word | off |" in rich["markdown"]
+        assert "| Timezone | Asia/Singapore |" in rich["markdown"]
+        assert keyboard is not None
