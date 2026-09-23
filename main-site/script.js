@@ -542,11 +542,7 @@ function init() {
     } else {
         fetchTab('dict').then(reconcileFavourites);
     }
-
-    // Register service worker
-    if ('serviceWorker' in navigator) {
-        navigator.serviceWorker.register('/sw.js').catch(() => {});
-    }
+    // The service worker is registered by js/update.js, which also owns the update bar.
 }
 
 init();
