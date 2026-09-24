@@ -68,6 +68,25 @@ class TestRunning:
         assert seen == [{"x": 1}]
         assert db.scalar("SELECT COUNT(*) FROM jobs WHERE dedupe_key = 'once'") == 0
 
+    def test_a_job_that_reschedules_itself_is_kept(self, run, client):
+        # The daily word does this: it runs, then enqueues tomorrow under the same key.
+        async def handler(_client, payload):
+            scheduler.enqueue("test_again", payload, delay_seconds=3600, dedupe_key="again")
+
+        scheduler._kinds["test_again"] = handler
+        scheduler._client = client
+        try:
+            scheduler.enqueue("test_again", {}, delay_seconds=-1, dedupe_key="again")
+            row = scheduler._claim_due()[0]
+            run(scheduler._run(row))
+        finally:
+            del scheduler._kinds["test_again"]
+
+        remaining = db.one("SELECT run_at, locked_at FROM jobs WHERE dedupe_key = 'again'")
+        assert remaining is not None
+        assert remaining["locked_at"] is None
+        assert db.from_iso(remaining["run_at"]) > db.now()
+
     def test_a_repeating_job_is_rescheduled(self, run, client):
         async def handler(_client, payload):
             return None

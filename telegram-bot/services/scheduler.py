@@ -101,7 +101,7 @@ def _claim_due() -> list[dict]:
         claimed = []
         for row in rows:
             conn.execute("UPDATE jobs SET locked_at = ? WHERE id = ?", (now, row["id"]))
-            claimed.append(dict(row))
+            claimed.append({**dict(row), "locked_at": now})
         conn.execute("COMMIT")
         return claimed
     except Exception:
@@ -150,7 +150,9 @@ async def _run(row: dict) -> None:
             (db.to_iso(db.now() + timedelta(seconds=row["interval_s"])), row["id"]),
         )
     else:
-        db.execute("DELETE FROM jobs WHERE id = ?", (row["id"],))
+        # A handler that rescheduled itself through its dedupe key has already cleared the
+        # lock, so matching on it leaves the next occurrence in place.
+        db.execute("DELETE FROM jobs WHERE id = ? AND locked_at = ?", (row["id"], row["locked_at"]))
 
 
 async def worker(client) -> None:
